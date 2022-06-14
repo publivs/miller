@@ -4,11 +4,12 @@ import pandas as pd
 import numpy as np
 import pickle
 import tables as ts
-
+import time
 
 
 # hdf5
 '''
+
 # 详情请参考这个
 https://pandas.pydata.org/pandas-docs/stable/reference/io.html#hdfstore-pyts-hdf5
 '''
@@ -30,7 +31,11 @@ class h5_helper():
         '''
         store_client = pd.HDFStore(self.store_path,mode='r+')
         # 这里还可以再包一些其他参数
+        t0 = time.time()
         df = store_client.get(table_name)
+        t1 = time.time()
+        print(f'数据读取完毕...,耗时:{t1-t0}')
+
         store_client.close()
         return df
 
@@ -50,15 +55,21 @@ class h5_helper():
         tips:data_columns是必须填的参数而且必须是py的原生对象
         '''
         print('数据写入中...')
-        store_client = pd.HDFStore(self.store_path,mode='a')
+        t0 = time.time()
+
+        # store_client = pd.HDFStore(self.store_path,mode='a')
+
         # 这里可能还需要检查,因为新增部分的列名可能跟之前的不同,得先检查表的属性对上列名让后再追加数据
         df.to_hdf(self.store_path,table_name,
                 format='table',
                 mode='a',
                 data_columns = df.columns.to_list(),
-                append=True)
-        store_client.close()
-        print('数据写入完毕...')
+                append=True,
+                complevel=6, complib="blosc")
+        t1 = time.time()
+        # store_client.close()
+
+        print(f'数据写入完毕...,耗时:{t1-t0}')
 
     def remove_table(self,table_name):
         '''
@@ -75,41 +86,25 @@ class h5_helper():
     #     pass
 
 
+
+def degrade_incuracy(df):
+    '''
+    降低精度,方便读取和存储
+    '''
+    # 针对OBJ切换成string
+    obj_columns = df.loc[:,df.dtypes == 'O'].columns
+    df[obj_columns] = df[obj_columns].astype('str')
+
+    df.loc[:,~df.columns.isin(obj_columns)]
+    df.loc[:,~df.columns.isin(obj_columns)].apply(lambda se:pd.to_numeric(se,downcast=True))
+    pass
+
 # -------------------------- 测试读取和写入部分 -------------------------- #
 
 # 数据量的多进程读取是否会因为store产生影响
 
-
-store_path = 'temp.h5'
-# write_mode = 'a'
-# h5_client = h5_helper(store_path)
-
-
 # store_client = pd.HDFStore(store_path,mode='r')
 # store_client.close()
-
-# 造假数据
-B = pd.DataFrame(['2021-08-20', '000300.SH', '600547.SH', '有色金属', float(0.9999),float(0.99999999), float(9999)],
-                index=['pdate', 'code', 'stock', 'industry', 'weight', 'return', 'rn'],
-                columns=  [100086]).T
-B[['weight', 'return']] = B[['weight', 'return',]].astype('float')
-B['rn'] = B['rn'] .astype('int32')
-
-
-A = pd.read_csv(r'chenqian\test_2_copy.csv',index_col='index')
-# 造出虚拟数据
-
-# A.to_hdf(r'chenqian'+'\\'+ store_path,'A',mode='w',append=True,data_columns = A.columns.to_list())
-
-# store_client = pd.HDFStore(r'chenqian'+"\\"+'temp.h5')
-
-
-F  = pd.read_hdf(r'chenqian'+"\\"+'temp.h5','A',where='''(
-        (code=='000300.SH')&(rev <= 0.03)
-        )''')
-# where='''(
-#     (code=='000300.SH')&(rev <= 0.03)
-#     )''')
 
 # hdf5_path = "test_data.hdf5"
 # # 和普通文件操作类似，'w'、'r'、'a' 分别表示写数据、读数据、追加数据
