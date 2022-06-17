@@ -1,8 +1,17 @@
+from fcntl import F_DUPFD
 import pandas as pd
 import numpy as np
 import sympy as sy
 import scipy as sp
 
+
+
+# 声明符号变量
+x = sy.symbols('x')
+y = sy.symbols('y')
+
+
+#
 
 def calc_C(n,m):
     a = sy.factorial(n)
@@ -97,7 +106,7 @@ f_y  = f_y_1 * f_y_2
 f_xy = 1
 f_x = sy.integrate(f_xy,(y,-x,-x))
 
-# 下半部分 
+# 下半部分
 f_y_1 = sy.integrate(f_xy,(x,-y,1))
 
 # 上半部分
@@ -142,12 +151,101 @@ answer_14 = 1 - np.sqrt(2)*sy.pi*(norm.cdf(1) - norm.cdf(0))
 
 # asnwer_15
 '''
-由题已知 X,Y的概率密度分布为1/sy.sqrt(2*sy.pi) * 
+由题已知 X,Y的概率密度分布为1/sy.sqrt(2*sy.pi)
 '''
+def get_yacobian_matix(target_vari_list,transform_vari_list):
+    funcs = sy.Matrix(target_vari_list)
+    args = sy.Matrix(transform_vari_list)
+    res = funcs.jacobian(args)
+    return res
+
 func_x = normal_distributes(0,1,symbols = 'x')
 func_y = normal_distributes(0,1,symbols = 'y')
 f_xy = (func_x * func_y).simplify()
+
 theta = sy.symbols('theta')
 r = sy.symbols('r', nonnegative=True)
-r_fxy = f_xy.subs(((x, r*sy.cos(theta)), (y, r*sy.sin(theta)))).simplify()
-r_fxy = sy.integrate(r_fxy,(theta,0,2*sy.pi))
+x_polar = r*sy.cos(theta)
+y_polar = r*sy.sin(theta)
+polar_fxy = f_xy.subs(((x, x_polar), (y, y_polar))).simplify()
+polar_fxy = sy.integrate(polar_fxy,(theta,0,2*sy.pi))
+
+# 雅可比行列式对dxdy进行函数变换之后 补上|det(jacobian)|
+jacobi_dxdy = get_yacobian_matix([x_polar,y_polar],[r,theta])
+
+polar_r_theta = polar_fxy * jacobi_dxdy.det().simplify()
+
+# 根据题目给出的要计算出的范围算出值
+F_D1 = sy.integrate(polar_r_theta,(r,0,1))
+F_D2 = sy.integrate(polar_r_theta,(r,1,2))
+F_D3 = 1 - F_D1 - F_D2
+
+# answer_16
+lamd = sy.symbols('lambda')
+mu = sy.symbols('mu')
+f_X = lamd * sy.exp(-lamd*x)
+f_Y = mu * sy.exp(-mu*y)
+
+# 对应独立条件概率,
+# 第一问的结果直接就 f_X
+
+'''
+对于X>Y和X<=Y,有不同的情况
+'''
+f_xy = f_X*f_Y
+
+# 针对X<=Y
+'''
+因为sy算无穷大的积分算出来不行我就手算了
+'''
+F_1 = lamd/(lamd+mu)
+
+# X>Y的概率等于 1 - P{X<Y}
+F_2 = (1 - F_1).simplify()
+
+# Z的分布律
+Z = {'0':F_1,
+    '1':F_2}
+
+# Z的分布函数(求累计)
+Z = {'z<0':0,
+    '0<=z<1':F_1,
+    'z>=1':F_1+F_2}
+
+# 3.answer_17 #
+f_x = 1
+f_y = sy.exp(-y)
+# 求Z=X+Y
+f_xy = f_x*f_y
+# 解法1
+# 针对线性变量组合使用的卷积公式
+
+'''
+卷积公式有两点:
+    1、
+    2、
+'''
+
+# 我自己这里的思路是解法2的思路
+'''
+这里要讨论Z数值的大小
+y
+|         |
+|         |
+|         |
+|         |
+|         |
+|_________|___________x
+
+1、如果Z小于0，在x,y的值域之外
+2、如果Z小于1,x的右侧上限为Z
+3、如果Z大于1,X的右侧上限为1
+'''
+z = sy.symbols('z')
+F_1 = 0
+F_2 = sy.integrate(f_xy,(y,0,z-x),(x,0,z))
+F_3 = sy.integrate(f_xy,(y,0,z-x),(x,0,1))
+
+f_2,f_3 = F_2.diff(z),F_2.diff(z)
+
+# 3.answer_18

@@ -47,7 +47,7 @@ A = A.apply(lambda x:x**4)
 
 def cdf_normalized(value,mean,var):
     return (value - mean)/np.sqrt(var)
-    
+
 #
 answer_39_a = norm(0,1).cdf(0) - norm(0,1).cdf(-1.5)
 answer_39_b = norm(0,1).cdf(-1.5)
@@ -164,13 +164,13 @@ b_unbias = np.sqrt(0.092*12)
 answer_516= [0.38,0.28,0.27,0.99,0.26,0.43]
 
 
-# 
+#
 answer_611 = norm.interval(0.9)
 answer_612 = norm.interval(0.8)
 answer_613 = norm.interval(0.99)
 answer_614 = norm.interval(0.9995)
 
-# 
+#
 answer_613_a = 2*(1- norm.cdf(1.45))
 
 answer_613_b = 1*(1- norm.cdf(1.45))
