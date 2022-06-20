@@ -1,4 +1,3 @@
-from fcntl import F_DUPFD
 import pandas as pd
 import numpy as np
 import sympy as sy
@@ -9,7 +8,11 @@ import scipy as sp
 # 声明符号变量
 x = sy.symbols('x')
 y = sy.symbols('y')
-
+z = sy.symbols('z')
+lamd = sy.symbols('lambda')
+mu = sy.symbols('mu')
+theta = sy.symbols('theta')
+r = sy.symbols('r', nonnegative=True)
 
 #
 
@@ -61,7 +64,7 @@ ans_11_3_1 = sy.integrate(A,(y,1/4,1))
 ans_11_3_2 = sy.integrate(A,(y,3/4,1))
 
 '''
-条件概率 ： f(x|y) = f(x,y)/f(y)
+条件概率 : f(x|y) = f(x,y)/f(y)
 '''
 
 
@@ -237,7 +240,7 @@ y
 |         |
 |_________|___________x
 
-1、如果Z小于0，在x,y的值域之外
+1、如果Z小于0,在x,y的值域之外
 2、如果Z小于1,x的右侧上限为Z
 3、如果Z大于1,X的右侧上限为1
 '''
@@ -249,3 +252,8 @@ F_3 = sy.integrate(f_xy,(y,0,z-x),(x,0,1))
 f_2,f_3 = F_2.diff(z),F_2.diff(z)
 
 # 3.answer_18
+'''
+二维随机变量用卷积公式
+
+不妨令
+'''
