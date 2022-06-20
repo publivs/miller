@@ -73,7 +73,7 @@ def get_all_table_info(table_id,header,base_url):
             res_df = pd.DataFrame(res)
 
         # 标准的DataFrame类型
-        if data_struc_type == '1':
+        if data_struc_type == '1': 
             res = json.loads(res_.text)
             res_df = pd.DataFrame.from_dict(res,orient = 'index')
 
@@ -81,8 +81,7 @@ def get_all_table_info(table_id,header,base_url):
         if data_struc_type == '2':
             res_df = pd.read_html(res_.text)[0]
 
-        return res
-
+        return res_df
 
     column_url = f'/api/column/{table_id}'
     slave_column_url = f'/api/slaveColumn/{table_id}'
@@ -96,11 +95,12 @@ def get_all_table_info(table_id,header,base_url):
 
     column_df = get_url_data(table_id,header,base_url,column_url)
     slave_column_df = get_url_data(table_id,header,base_url,slave_column_url)
-    table_index_unique_df = get_url_data(table_id,header,base_url,table_index_unique_url)
+    table_index_unique_df = get_url_data(table_id,header,base_url,table_index_unique_url,'1')
     table_change_desc_df = get_url_data(table_id,header,base_url,table_change_desc_url)
-    table_modify_date_df = get_url_data(table_id,header,base_url,table_modify_date_url)
 
-    example_info_df = get_url_data(table_id,header,base_url,example_info_url,'1')
+    table_modify_date_df = get_url_data(table_id,header,base_url,table_modify_date_url,'1')
+
+    example_info_df = get_url_data(table_id,header,base_url,example_info_url,'2')
     Q_A_info_df = get_url_data(table_id,header,base_url,Q_A_info_url)
 
     return column_df,slave_column_df,table_index_unique_df,table_change_desc_df,table_modify_date_df,example_info_df,Q_A_info_df
@@ -110,5 +110,7 @@ slave_column_df,\
 table_index_unique_df,\
 table_change_desc_df,\
 table_modify_date_df,example_info_df,Q_A_info_df = get_all_table_info(table_id,req_headers,base_url)
+
+
 
 
