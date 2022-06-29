@@ -1,4 +1,3 @@
-import nntplib
 from numpy import empty
 import pandas as pd
 import numpy as np
@@ -10,8 +9,8 @@ import time
 
 from hdf_helper import *
 
-def get_all_table_info(table_id,header,base_url):
-    def get_url_data(table_id,req_headers,base_url,table_url,data_struc_type='0',dict_sub_key = ''):
+
+def get_url_data(table_id,req_headers,base_url,table_url,data_struc_type='0',dict_sub_key = ''):
 
         con_continnue = True
         while con_continnue:
@@ -28,7 +27,7 @@ def get_all_table_info(table_id,header,base_url):
                 print("链接,出异常了！")
 
         res_.encoding = 'utf-8'
-        if not res_.text.__len__() ==0:
+        if not res_.text.__len__() == 0:
         # 标准的DF类型
             if data_struc_type == '0':
                 res = json.loads(res_.text)
@@ -42,7 +41,7 @@ def get_all_table_info(table_id,header,base_url):
                 else:
                     res_df = pd.DataFrame.from_dict(res[dict_sub_key],orient = 'index')
 
-            # 返回的html静态类型
+        # 返回的html静态类型
             if data_struc_type == '2':
                 try:
                     res_df = pd.read_html(res_.text)[0]
@@ -54,6 +53,8 @@ def get_all_table_info(table_id,header,base_url):
             return res_df
         else:
             return pd.DataFrame()
+
+def get_all_table_info(table_id,header,base_url):
 
     table_info_url = f'/api/table/{table_id}'
     column_url = f'/api/column/{table_id}'
@@ -95,7 +96,7 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
     # 根文件夹
 
 
-    # --------------------------------- 下面的部分用递归改变 ----------------------------------------- # 
+    # ------------------------------------------ 下面的部分用递归改变 ------------------------------------------ #
     # 创建文件夹
     # data_set_path = i_dataset_name['groupName']
     # data_set_path_rela = all_data_set_path+'\\'+data_set_path
@@ -161,50 +162,76 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
             update_qa_info(table_id,table_name,qa_table_name,h5_group_path_rela,Q_A_info_df.iloc[no_])
 
 
-def initial_file_path(tree_nodes,res_path = 'Juyuan_datafile',append_path = ''):
-    # 如果传进来的列表对象那就遍历搜索
+def initial_file_path(tree_nodes,
+                    res_path = 'Juyuan_datafile',
+                    next_level_key = 'nodes',
+                    path_key = 'groupName',
+                    table_name_key  = 'tableName',
+                    table_id_key = 'id'):
+    #
+    initial_path = res_path
+    next_level_key = next_level_key
+    path_key = path_key
+    table_name_key = table_name_key
+    table_id_key = table_id_key
+
+    # 传进来是列表对象就继续遍历子节点
     if isinstance(tree_nodes,list):
             for i in  range(tree_nodes.__len__()):
                     sub_node_i = tree_nodes[i]
-                    res_path,append_path = initial_file_path(sub_node_i,res_path,append_path)
+                    res_path = initial_file_path(sub_node_i,res_path,next_level_key,path_key,table_name_key)
 
     # 不是列表继续搜索,搜到列表位置
     else:
-        if tree_nodes['nodes'].__len__() > 0:
+        write_mark = '0'
+        if tree_nodes[next_level_key] is None:
+            write_mark = '1'
+        else:
+            if (tree_nodes[next_level_key].__len__() > 0):
+                pass
+            else:
+                write_mark = '1'
+
+        if write_mark == '0':
                 if res_path is None:
-                    res_path = 'Juyuan_datafile'
-                append_path  = '\\'+ tree_nodes['groupName']
+                    res_path = initial_path
+                append_path  = '\\'+ tree_nodes[path_key]
+                append_path = append_path.replace('/','_')
                 res_path = res_path + append_path
                 print(res_path)
-                sub_nodes = tree_nodes['nodes']
+                sub_nodes = tree_nodes[next_level_key]
                 if not os.path.exists(res_path):
                     os.mkdir(res_path)
-                res_path,append_path = initial_file_path(sub_nodes,res_path,append_path)
-                return res_path,append_path
+                res_path = initial_file_path(sub_nodes,res_path,next_level_key,path_key,table_name_key)
+                return res_path
 
         # nodes一般是大于0的，如果为0那么基本是遍历到基层的子节点了,在这里实例化HDFS对象存数据
         else:
             # print('准备实例化_hdf5!!!')
             table_id = tree_nodes['id']
+            # obj_id = tree_nodes['OBJ_ID']
             table_name = tree_nodes['tableName']
             table_cn_name = tree_nodes['groupName']
-            if table_id == table_id:
+            if table_cn_name is None:
                 pass
-            h5_path = f'''{res_path}\\{table_cn_name}_{table_id}'''
-            # print(h5_path)
-            catch_data_main(tree_nodes,req_headers,base_url,h5_path)
+            h5_path = f'''{res_path}\\{table_name}_{table_id}'''
+            print(h5_path)
+            # sleep_time = time.sleep(np.random.randint(3,4))
+            return res_path
 
-            sleep_time = time.sleep(np.random.randint(3,4))
-            return res_path,append_path
+    last_path = '\\'+res_path.split('\\')[-1:][0]
+    res_path = res_path.replace(last_path,'')
+    return res_path
 
-    return res_path.replace(append_path,''),''
-            # catch_data_main(table_id,req_headers,base_url)
+
+
+
 
 # -------------------------------------------------------------------------------------- #
 
 base_url = 'https://dd.gildata.com/'
 
-cookie = '''rememberMeFlag=true; sSerial=TVRBNmRIQjVlbU56YW1zd09HZHBiR1JoZEdGQU1USXo=; SESSION=6e243e2e-b99c-484d-8bd4-bc3d7a8f5b0f'''
+cookie = '''rememberMeFlag=true; sSerial=TVRBNmRIQjVlbU56YW1zd09HZHBiR1JoZEdGQU1USXo%3D; SESSION=03fed8d9-4f80-4393-850d-72f90fa4a28b'''
 
 # Override the default request headers:
 req_headers = {
@@ -229,8 +256,10 @@ all_data_set_path = 'Juyuan_datafile'
     # os.remove(all_data_set_path)
 if  not os.path.exists(all_data_set_path):
         os.mkdir(all_data_set_path)
-for i in range(all_dataset_name.__len__()):
-    initial_file_path(all_dataset_name['nodes'][i])
+
+for i in range (len(all_dataset_name['nodes']) ):
+    if i >= 11:
+        initial_file_path(all_dataset_name['nodes'][i])
 # # 获取该对应第0个data_set 的信息
 # for i in range(all_dataset_name.__len__()):
 #     i_dataset_name = all_dataset_name[i]
@@ -242,7 +271,6 @@ for i in range(all_dataset_name.__len__()):
 # # 获取该group下对应的table_0的信息
 #         for k in range(i_group_info['nodes'].__len__()):
 #                 i_table_info = i_group_info['nodes'][k]
-
 #                 no_ = i*100+j*10+k
 #                 if no_ >710:
 #                     print('*'*10+'执行到了,no_:  '+str(no_)+'*'*10)

@@ -102,7 +102,6 @@ def calc_expect(df):
             se_calc = pd.Series.multiply( df[col] , np.array(df.index),axis=0) * col
             res_lst.append(se_calc)
         EE_df = pd.concat(res_lst,axis=1)
-       
     if isinstance(df,pd.Series):
         EE_df = pd.Series.multiply( df , np.array(df.index),axis=0)
     EE  = EE_df.values.flatten().sum()
@@ -112,7 +111,7 @@ EE=  calc_expect(A)
 #EX1
 EX1 = (A.sum(axis=1) * [tt for tt in A.index]).sum()
 
-#EX2 
+#EX2
 EX2 = (A.sum(axis=0) * [tt for tt in A.columns]).sum()
 
 cov = EE - EX1*EX2
@@ -201,7 +200,7 @@ y = [-1.46,0.35,6.46,4.09,7.34,6.18,14.97,14.28,20.20,21.24]
 slope, intercept, r_value, p_value, std_err = linregress(x, y)
 std_error_variance  = ((y - (intercept +slope*x ))**2)/(y.__len__()-2)
 
-# 
+#
 asw_7_13 = np.sqrt(20.30*(0.71**2+19.82)/(20*12*19.82))
 asw_7_13_b_se = np.sqrt(20.3/19.82/240)
 #
