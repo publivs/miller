@@ -158,7 +158,7 @@ all_dataset_name = res_all_tree
 ## ---------------------------------------------------------- ##
 all_data_set_path = 'CaiHui_datafile'
     # os.remove(all_data_set_path)
-if  not os.path.exists(all_data_set_path):
+if not os.path.exists(all_data_set_path):
         os.mkdir(all_data_set_path)
 # else:
 #     os.remove(all_data_set_path)
