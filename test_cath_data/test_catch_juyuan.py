@@ -9,7 +9,6 @@ import time
 
 from hdf_helper import *
 
-
 def get_url_data(table_id,req_headers,base_url,table_url,data_struc_type='0',dict_sub_key = ''):
 
         con_continnue = True

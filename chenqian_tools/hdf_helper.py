@@ -16,7 +16,7 @@ pd的源码:
 '''
 
 class h5_helper():
-    def __init__(self,store_path):
+    def __init__(self,store_path,is_print = '0'):
         if os.path.exists(store_path):
             print('目标路径存在文件,可以启动HDFS......')
         else:
@@ -27,7 +27,7 @@ class h5_helper():
             print(f'目标路径不存在文件,已创建新的HDFS:{store_path}...')
 
         self.store_path = store_path
-        self.print_time = '0'
+        self.print_time = is_print
     def get_table(self,table_name):
         '''
         读全表的时候用这个方法,拿数据的都是get_node
