@@ -36,7 +36,7 @@ def initial_file_path(select_df,all_df,res_path = 'all_data_set_path'):
                 res_path,all_df = initial_file_path(select_df_i,all_df,res_path)
 
     else:
-            # 不等於0
+    # 不等於0
         write_mark = '0'
         if (select_df.display_type >0).any():
             write_mark = '1'
