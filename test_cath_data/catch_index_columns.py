@@ -14,6 +14,7 @@ chrome_options.add_argument('--ignore-certificate-errors') #忽略一些莫名�
 chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])  # 开启开发者模式
 chrome_options.add_argument('--disable-blink-features=AutomationControlled')  # 谷歌88版以上防止被检测
 # chrome_options.add_argument('blink-settings=imagesEnabled=false') #不加载图片, 提升速度
+
 chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36')
 
 # chrome_options.add_argument('--headless') # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败,可视化带ui的正常使用,方便调试
@@ -21,7 +22,6 @@ chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64
 driver = webdriver.Chrome(options=chrome_options)  # 将chromedriver放到Python安装目录Scripts文件夹下
 
 options = webdriver.ChromeOptions()
-
 
 def opt_get_cookie(driver):
 
