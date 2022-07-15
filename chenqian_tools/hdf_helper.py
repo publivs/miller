@@ -163,7 +163,7 @@ def degrade_incuracy(df,degrage_level = 'low'):
     3、所有的obj全部强转为STR
     4、所有datetime和时间序列类型转成datetime64
     '''
-    def quick_numeric(se):
+    def quick_numeric(se,degrage_level):
         dtype_str = se.dtype.__str__()
 
         # 调整float
@@ -188,6 +188,6 @@ def degrade_incuracy(df,degrage_level = 'low'):
     df[obj_columns] = df[obj_columns].astype('str')
 
     # 调节精度优化读写
-    df.loc[:,~df.columns.isin(obj_columns)] = df.loc[:,~df.columns.isin(obj_columns)].apply(lambda se:quick_numeric(se))
+    df.loc[:,~df.columns.isin(obj_columns)] = df.loc[:,~df.columns.isin(obj_columns)].apply(lambda se:quick_numeric(se,degrage_level))
     return df
 
