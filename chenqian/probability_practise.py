@@ -20,6 +20,7 @@ def calc_C(n,m):
     a = sy.factorial(n)
     b = sy.factorial(m) * sy.factorial(n-m)
     return a/b
+
 # practise_5
 x = sy.symbols('x')
 y = sy.symbols('y')
@@ -233,11 +234,11 @@ f_xy = f_x*f_y
 '''
 这里要讨论Z数值的大小
 y
-|         |
-|         |
-|         |
-|         |
-|         |
+|      /  |
+|     /   |
+|    /  | |
+|   / |   |
+|  /      |
 |_________|___________x
 
 1、如果Z小于0,在x,y的值域之外
@@ -248,12 +249,34 @@ z = sy.symbols('z')
 F_1 = 0
 F_2 = sy.integrate(f_xy,(y,0,z-x),(x,0,z))
 F_3 = sy.integrate(f_xy,(y,0,z-x),(x,0,1))
-
-f_2,f_3 = F_2.diff(z),F_2.diff(z)
+f_2,f_3 = F_2.diff(z),F_3.diff(z)
 
 # 3.answer_18
 '''
 二维随机变量用卷积公式
+f_t  = t*exp(-t)
+令Z = X1+X2
 
-不妨令
+由卷积公式
+f(z) = ∫[-oo,+oo]f(z)f(z-x)dx
+由f(t)的定义,只有t>0时原函数才有意义
+
+∴{x>0,z-x>0}
+    => {x>0,x<z}
+
+y
+|        /|
+|       / |
+|      /  |
+|     /   |
+|    /    |
+|   /     |
+|  /      |
+|_/_______|___________x
+
 '''
+fz = x*sy.exp(x) * (z-x)*sy.exp(z-x)
+
+f_z = sy.integrate(f_xy,(y,0,z-x),(x,0,z))
+
+

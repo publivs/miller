@@ -22,7 +22,7 @@ def check_df_info(df):
 
 def prepro_df(df):
     '''
-
+    
     '''
     df['S_2'] = pd.to_datetime(df.S_2)
     features = [x for x in df.columns.values if x not in ['customer_ID', 'target']]
@@ -79,8 +79,8 @@ tri_df = corr_matrix.mask(mask)
 
 # List column names of highly correlated features (r > 0.7)
 to_drop = [c for c in tri_df.columns if any(tri_df[c] > 0.7)]
-print(f'Number of features: {len(to_drop)} \n {to_drop}')
-
+print(f'Number of features: {len(to_drop)} \n {to_drop}'
+)
 # DataSet prepare for analysis
 target = train_['target']
 train_df = train_.drop(['target'], axis=1)
