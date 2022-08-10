@@ -9,12 +9,13 @@ import scipy as sp
 x = sy.symbols('x')
 y = sy.symbols('y')
 z = sy.symbols('z')
+u = sy.symbols('u')
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
 r = sy.symbols('r', nonnegative=True)
 
-#
+
 
 def calc_C(n,m):
     a = sy.factorial(n)
@@ -233,13 +234,14 @@ f_xy = f_x*f_y
 # 我自己这里的思路是解法2的思路
 '''
 这里要讨论Z数值的大小
-y
+x        /|
+|       / |
 |      /  |
 |     /   |
 |    /  | |
 |   / |   |
-|  /      |
-|_________|___________x
+|  / |||| |
+|_/____|__|___________x
 
 1、如果Z小于0,在x,y的值域之外
 2、如果Z小于1,x的右侧上限为Z
@@ -275,8 +277,31 @@ y
 |_/_______|___________x
 
 '''
-fz = x*sy.exp(x) * (z-x)*sy.exp(z-x)
-
-f_z = sy.integrate(f_xy,(y,0,z-x),(x,0,z))
 
 
+fz = x*sy.exp(-x) * (z-x)*sy.exp(-(z-x))
+
+F_z = sy.integrate(fz,(x,0,z))
+
+'''
+同理对W =  Z+X3(仍然是互相两两独立)
+卷积公式的拓展
+'''
+f_t  = x*sy.exp(-x)
+
+F_u_z = f_t.evalf(subs={'x':u-x}).simplify()
+
+f_uz = F_z.evalf(subs={'z': x}) * F_u_z
+
+F_w = sy.integrate(f_uz,(x,0,u))
+
+'''
+19 题
+'''
+f_xy = 1/2 *(x+y)*sy.exp(-(x+y))
+
+# 证独立
+# 因为x,y在小于等于0的区域无意义
+
+F_xy = sy.integrate(f_xy,(y,0,+sy.oo))
+ 
