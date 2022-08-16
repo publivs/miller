@@ -13,6 +13,7 @@ u = sy.symbols('u')
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
+sigma = sy.symbols('sigma')
 r = sy.symbols('r', nonnegative=True)
 
 
@@ -26,7 +27,7 @@ def calc_C(n,m):
 x = sy.symbols('x')
 y = sy.symbols('y')
 
-f_xy= 4.8*y*(2-x)
+f_xy = 4.8*y*(2-x)
 
 f_x = sy.integrate(f_xy,(y,0,x))
 f_y = sy.integrate(f_xy,(x,y,1))
@@ -46,14 +47,14 @@ f_x = sy.integrate(f_xy,(y,x**2,1))
 
 f_y = sy.integrate(f_xy,(x,-sy.sqrt(y),sy.sqrt(y)))
 # practise_11——1
-f_xy_y= f_xy/f_y
+f_xy_y = f_xy/f_y
 f_xy_y.evalf(subs={'y':1/2})
 
 # practise_11——2
-f_xy_y= f_xy/f_y
+f_xy_y = f_xy/f_y
 f_xy_y.evalf(subs={'y':1/2})
 
-f_xy_x= f_xy/f_x
+f_xy_x = f_xy/f_x
 f_xy_x.evalf(subs={'y':1/3,'x':1/2})
 
 # practise_11——3
@@ -68,7 +69,6 @@ ans_11_3_2 = sy.integrate(A,(y,3/4,1))
 '''
 条件概率 : f(x|y) = f(x,y)/f(y)
 '''
-
 
 # 9
 n = sy.symbols('n')
@@ -121,7 +121,7 @@ f_xy_x_1 = f_xy
 
 def normal_distributes(mu,sigma,symbols = 'x'):
     x = sy.symbols(symbols)
-    func_normal_dist = 1/sy.sqrt(2*sy.pi) * sy.exp(-(x-mu)**2/2*(sigma**2))
+    func_normal_dist = (1/(sy.sqrt(2*sy.pi)*sigma)) * sy.exp(-((x-mu)**2/(2*(sigma**2))))
     return func_normal_dist
 
 # 第四章 12题
@@ -210,7 +210,7 @@ F_2 = (1 - F_1).simplify()
 
 # Z的分布律
 Z = {'0':F_1,
-    '1':F_2}
+     '1':F_2}
 
 # Z的分布函数(求累计)
 Z = {'z<0':0,
@@ -234,14 +234,15 @@ f_xy = f_x*f_y
 # 我自己这里的思路是解法2的思路
 '''
 这里要讨论Z数值的大小
-x        /|
-|       / |
-|      /  |
-|     /   |
-|    /  | |
-|   / |   |
-|  / |||| |
-|_/____|__|___________x
+x
+|        /|
+|       /||
+|      /|||
+|     /||||
+|    /|||||
+|   /||||||
+|  /|||||||
+|_/||||||||____________x
 
 1、如果Z小于0,在x,y的值域之外
 2、如果Z小于1,x的右侧上限为Z
@@ -268,14 +269,13 @@ f(z) = ∫[-oo,+oo]f(z)f(z-x)dx
 
 y
 |        /|
-|       / |
-|      /  |
-|     /   |
-|    /    |
-|   /     |
-|  /      |
-|_/_______|___________x
-
+|       /||
+|      /|||
+|     /||||
+|    /|||||
+|   /||||||
+|  /|||||||
+|_/||||||||_______________x
 '''
 
 
@@ -303,5 +303,36 @@ f_xy = 1/2 *(x+y)*sy.exp(-(x+y))
 # 证独立
 # 因为x,y在小于等于0的区域无意义
 
-F_xy = sy.integrate(f_xy,(y,0,+sy.oo))
- 
+F_x = sy.integrate(f_xy,(y,0,+sy.oo))
+
+# 因为两个随机变量乘积不为FXY, 不独立
+F_xy = F_x * F_x.evalf(subs={'x':y}).simplify()
+
+'''
+由定义,
+X>0,Y>0
+>=
+Z-Y >0,Y >0
+
+变成了
+y<z
+y>0
+
+y        y=z
+|        /|
+|       /||
+|      /|||
+|     /||||
+|    /|||||
+|   /||||||
+|  /|||||||
+|_/||||||||_______________z
+'''
+f_xy  = 1/2*(x+y)*sy.exp(-(x+y))
+f_z = f_xy.evalf(subs={'x':z-y,}).simplify()
+F_z = sy.integrate(f_z,(y,0,z))
+
+# 20
+f_z  = z/sigma**2 * sy.exp( - (z**2/2/sigma**2))
+
+# 因为x,y相互独立
