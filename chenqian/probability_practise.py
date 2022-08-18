@@ -3,6 +3,8 @@ import numpy as np
 import sympy as sy
 import scipy as sp
 
+# 引入正态分布
+from scipy.stats import norm
 
 
 # 声明符号变量
@@ -16,12 +18,16 @@ theta = sy.symbols('theta')
 sigma = sy.symbols('sigma')
 r = sy.symbols('r', nonnegative=True)
 
-
-
 def calc_C(n,m):
     a = sy.factorial(n)
     b = sy.factorial(m) * sy.factorial(n-m)
     return a/b
+
+def normal_distributes(mu,sigma,symbols = 'x'):
+    x = sy.symbols(symbols)
+    func_normal_dist = (1/(sy.sqrt(2*sy.pi)*sigma)) * sy.exp(-((x-mu)**2/(2*(sigma**2))))
+    return func_normal_dist
+
 
 # practise_5
 x = sy.symbols('x')
@@ -119,10 +125,6 @@ f_y_2 = sy.integrate(f_xy,(x,y,1))
 
 f_xy_x_1 = f_xy
 
-def normal_distributes(mu,sigma,symbols = 'x'):
-    x = sy.symbols(symbols)
-    func_normal_dist = (1/(sy.sqrt(2*sy.pi)*sigma)) * sy.exp(-((x-mu)**2/(2*(sigma**2))))
-    return func_normal_dist
 
 # 第四章 12题
 '''
@@ -149,7 +151,7 @@ f_Y = (1/2)*sy.exp(-y/2)
 f_X = 1
 f_xy = f_Y*f_X
 #
-from scipy.stats import norm
+
 integrate_y_14 = sy.integrate(f_xy,(y,0,x**2))
 # 对于exp(-x^2/2),转换为正态分布函数求Fi即可
 answer_14 = 1 - np.sqrt(2)*sy.pi*(norm.cdf(1) - norm.cdf(0))
@@ -336,3 +338,87 @@ F_z = sy.integrate(f_z,(y,0,z))
 f_z  = z/sigma**2 * sy.exp( - (z**2/2/sigma**2))
 
 # 因为x,y相互独立
+'''
+F(x,y) = F(X) * F(Y)
+P{Z <= z}
+P{sqrt(x**2+y**2) <= z}
+# 由正态分布定义,Z <- 0 时，F(z) = 0
+只考虑 Z> 0 的情况
+'''
+
+f_xy = normal_distributes(0,sigma,symbols = 'x') * normal_distributes(0,sigma,symbols = 'y')
+f_xy = f_xy.simplify()
+
+# 转换极坐标
+x_polar = r*sy.cos(theta)
+y_polar = r*sy.sin(theta)
+jacobi_dxdy = get_yacobian_matix([x_polar,y_polar],[r,theta]).det().simplify()
+polar_fxy_no_d = f_xy.subs(((x, x_polar), (y, y_polar))).simplify()
+polar_fxy = polar_fxy_no_d * jacobi_dxdy
+#
+polar_Fxy = sy.integrate(polar_fxy,(r,0,z))  * (2*sy.pi)
+polar_Fxy = polar_Fxy.simplify()
+
+f_z  = polar_Fxy.diff(z)
+
+
+# ------------------ 21 ------------------ #
+f_xy_k = sy.exp(-(x+y))
+F_xy_k = sy.integrate(f_xy_k,(x,0,1),(y,0,sy.oo))
+k = 1/F_xy_k
+
+f_xy = k * f_xy_k
+
+f_x = sy.integrate(f_xy,(y,0,sy.oo)).simplify()
+f_y = sy.integrate(f_xy,(x,0,1)).simplify()
+
+
+# 针对U = MAX(X,Y)
+'''
+P{U < z}
+因为相互独立
+P{X<= Z,Y<= Z}
+P{X}* P{Y}
+
+边缘分布已经算出
+'''
+# 因为X属于0~1
+F_x = sy.integrate(f_x,(x,0,u)).simplify()
+
+F_y = sy.integrate(f_y,(y,0,u)).simplify()
+
+
+
+# 小于0时为0
+F_U = 0
+
+# 0到1时
+F_U =  F_x *F_y
+
+# 大于1时
+F_U = 1 -sy.exp(-u)
+
+# ----- 22 ------ #
+X_i = norm(160,20)
+
+p = X_i.cdf(180)
+res_22 = (1-p)**4
+
+# -------------------- 23 --------------------- #
+# 写出瑞利分布
+f_z  = z/sigma**2 * sy.exp( - (z**2/2/sigma**2))
+f_z = f_z.evalf(subs = {sigma:2})
+
+raily_distri =  sy.integrate(f_z,(z,0,x)).simplify()
+
+# 如果他们是独立同分布
+# 1) Z = max{X1,X2,X3,X4,X5}
+# Z = X1* .... * X5
+F_z = raily_distri**5
+
+# P{Z > 4} >= 1 - P{Z<= 4}
+# 1 - F(4)
+res_23 = 1 - F_z.evalf(subs = {x:4})
+
+
+
