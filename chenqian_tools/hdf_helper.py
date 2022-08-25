@@ -80,26 +80,30 @@ class h5_helper():
             2、complevel会影响写入和读取速度,个人仍然推荐高压缩比[7,8,9];
             3、complib: 选择blosc:lz4读写速度都很快(也试了下其他格式,zlib啥的拉夸的一批)
         '''
-        if self.print_time == '1':
-            print('数据写入中...')
-        t0 = time.time()
+        if not df.empty:
 
-        # store_client = pd.HDFStore(self.store_path,mode='a')
+            if self.print_time == '1':
+                print('数据写入中...')
+            t0 = time.time()
 
-        # 这里可能还需要检查,因为新增部分的列名可能跟之前的不同,得先检查表的属性对上列名让后再追加数据
+            # store_client = pd.HDFStore(self.store_path,mode='a')
 
-        df.to_hdf(self.store_path,table_name,
-                format='table',
-                mode='a',
-                data_columns = df.columns.to_list(),
-                append=True,
-                index=False,  # 索引最好写完之后自己统一加,针对全DF加索引没有任何意义还浪费速度浪费空间
-                complevel=complevel, complib="blosc:lz4")
-        t1 = time.time()
+            # 这里可能还需要检查,因为新增部分的列名可能跟之前的不同,得先检查表的属性对上列名让后再追加数据
 
-        # store_client.close()
-        if self.print_time == '1':
-            print(f'数据写入完毕...,耗时:{t1-t0}')
+            df.to_hdf(self.store_path,table_name,
+                    format='table',
+                    mode='a',
+                    data_columns = df.columns.to_list(),
+                    append=True,
+                    index=False,  # 索引最好写完之后自己统一加,针对全DF加索引没有任何意义还浪费速度浪费空间
+                    complevel=complevel, complib="blosc:lz4")
+            t1 = time.time()
+
+            # store_client.close()
+            if self.print_time == '1':
+                print(f'数据写入完毕...,耗时:{t1-t0}')
+        else:
+            print('数据为空,请检查数据......')
 
     def set_table_index(self,table_name,col_name =[]):
         '''

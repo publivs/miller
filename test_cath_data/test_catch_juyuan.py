@@ -94,7 +94,6 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
 
     # 根文件夹
 
-
     # ------------------------------------------ 下面的部分用递归改变 ------------------------------------------ #
     # 创建文件夹
     # data_set_path = i_dataset_name['groupName']

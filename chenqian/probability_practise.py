@@ -6,11 +6,11 @@ import scipy as sp
 # 引入正态分布
 from scipy.stats import norm
 
-
 # 声明符号变量
 x = sy.symbols('x')
 y = sy.symbols('y')
 z = sy.symbols('z')
+k = sy.symbols('k')
 u = sy.symbols('u')
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
@@ -28,7 +28,10 @@ def normal_distributes(mu,sigma,symbols = 'x'):
     func_normal_dist = (1/(sy.sqrt(2*sy.pi)*sigma)) * sy.exp(-((x-mu)**2/(2*(sigma**2))))
     return func_normal_dist
 
-
+def pi_distributes(lamd):
+    lamd = sy.symbols(lamd)
+    pi_dist = (lamd**k * sy.exp(-lamd))/sy.factorial(k)
+    return pi_dist
 # practise_5
 x = sy.symbols('x')
 y = sy.symbols('y')
@@ -429,5 +432,25 @@ res_23 = 1 - F_z.evalf(subs = {x:4})
 # N = min(X,Y)
 # Fn = 1 = [1-F(z)]^2
 # P{a < N <b} < = Fn(b) - Fn(a)
-# [1-F(a)]^2 - [1 - F(b)]^2
+# P{a < min(X,Y) < b} = [1-F(a)]^2 - [1 - F(b)]^2
+# P{X>a} = 1- F(a)
 
+# -------------------- 25 --------------------- #
+
+# X,Y相互独立
+# P{X = k} = p(k)
+# p{Y = r} = q(r)
+
+# Z = X+Y
+# 因为相互独立
+# P{Z = i} = P{X= k,Y=i-k}
+# 按照下列方式分解为两个互不相容的事件之和
+# X+Y = i进行组合
+# P_SUM[k=0,k=i]p(k)q(i-k)
+
+# -------------------- 26 --------------------- #
+# X~π(入)
+
+# 25题的结论
+# P{Z = i} = P SUM[k=0,k=i]p(k)q(i-k)
+# 
