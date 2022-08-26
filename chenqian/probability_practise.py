@@ -12,6 +12,7 @@ y = sy.symbols('y')
 z = sy.symbols('z')
 k = sy.symbols('k')
 u = sy.symbols('u')
+
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
@@ -28,8 +29,9 @@ def normal_distributes(mu,sigma,symbols = 'x'):
     func_normal_dist = (1/(sy.sqrt(2*sy.pi)*sigma)) * sy.exp(-((x-mu)**2/(2*(sigma**2))))
     return func_normal_dist
 
-def pi_distributes(lamd):
+def pi_distributes(lamd='lambda',k='k'):
     lamd = sy.symbols(lamd)
+    k = sy.symbols(k)
     pi_dist = (lamd**k * sy.exp(-lamd))/sy.factorial(k)
     return pi_dist
 # practise_5
@@ -55,6 +57,7 @@ f_xy = c_* x**2*y
 f_x = sy.integrate(f_xy,(y,x**2,1))
 
 f_y = sy.integrate(f_xy,(x,-sy.sqrt(y),sy.sqrt(y)))
+
 # practise_11——1
 f_xy_y = f_xy/f_y
 f_xy_y.evalf(subs={'y':1/2})
@@ -453,4 +456,39 @@ res_23 = 1 - F_z.evalf(subs = {x:4})
 
 # 25题的结论
 # P{Z = i} = P SUM[k=0,k=i]p(k)q(i-k)
-# 
+#
+lamd1 = sy.symbols('lambda1')
+lamd2 = sy.symbols('lambda2')
+f_26 = pi_distributes('lambda1','k') * pi_distributes('lambda2','i-k')
+# 因为
+i = sy.symbols('i')
+k = sy.symbols('k')
+coefficent = calc_C(i,k)
+# 对原式进行变形
+f_26 = sy.exp(-(lamd1+lamd2))/sy.factorial(i) *(lamd1+ lamd2)**i
+# Z~ pi(lamd1+lamd2)
+
+# -------------------- 27 --------------------- #
+# X~b(n1,p),Y~b(n2,p)
+# 还是用25题算出来的公式
+
+# 仍然是用二项式变形
+# 变形 C(n1+n2,i) = SUM[k=0,i] C(n1,k)*C(n2,i-k)
+
+# 变形没成功
+
+
+i = 5
+
+
+n1 = 1
+n2 = 2
+
+k = 0
+calc_C(k,n1)*calc_C(i-k,n2)
+calc_C(i,n1+n2)
+b = 0
+for k in range(0,6):
+    a = calc_C(k,n1)*calc_C(i-k,n2)
+    b = b + a
+# 为啥我这里算出来有问题？不能反证? 弄个

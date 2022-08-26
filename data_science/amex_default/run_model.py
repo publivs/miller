@@ -22,7 +22,7 @@ def check_df_info(df):
 
 def prepro_df(df):
     '''
-    
+
     '''
     df['S_2'] = pd.to_datetime(df.S_2)
     features = [x for x in df.columns.values if x not in ['customer_ID', 'target']]

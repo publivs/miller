@@ -7,8 +7,11 @@ import re
 import json
 import requests
 import time
+import sys,os
 
-from hdf_helper import *
+sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(r"C:\Users\kaiyu\Desktop\miller")
+from chenqian_tools.hdf_helper import *
 
 def connect_url(target_url,req_headers):
     con_continnue = True
@@ -72,16 +75,37 @@ def initial_file_path(select_df,all_df,res_path = 'all_data_set_path'):
 
 
 
-#
+# 
 def append_table_main(guid,h5_group_path_rela):
+
+    def process_field_describe(need_append_describe):
+        data_lst = []
+        for guid_id in need_append_describe:
+            field_describe_url = f'''http://gogoaldata.go-goal.cn/api/v1/dd_data/get_field_describle?guid={guid_id}'''
+            res_ = connect_url(field_describe_url,req_headers)
+            if res_ is not None:
+                res = json.loads(res_.text)
+                df = pd.DataFrame.from_dict(res['data'],orient = 'index').T
+                data_lst.append(df)
+        if len(data_lst) > 0:
+            return pd.concat(data_lst,ignore_index= True)
+        else:
+            return pd.DataFrame()
+
     target_url = f'''{table_info_url}?table_type=0&guid={guid}'''
     table_info = connect_url(target_url,req_headers)
     res = json.loads(table_info.text)
 
     table_field_df = pd.DataFrame(res['data']['table_field'])
     describe_df = pd.DataFrame.from_dict(res['data']['table_describle'],orient = 'index').T
+
+    need_append_describe = table_field_df.loc[table_field_df.display_description == 1]['guid']
+    fields_describe_df = process_field_describe(need_append_describe)
+    fields_describe_df  = fields_describe_df.astype('str')
+
     h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
 
+    h5_client.append_table(fields_describe_df,'fields_describe_df')
     if not table_field_df.empty:
         h5_client.append_table(table_field_df,'table_field_df')
 
@@ -142,7 +166,7 @@ for i in range(mother_df_1.__len__()):
 
 
 
-    # 根据 level_id判断path
+    # 根据 level_id判断path6
     # print(label['menu_name'])
     # print(label['level'])
     # print(label['group_id']) #

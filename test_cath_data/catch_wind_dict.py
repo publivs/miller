@@ -127,9 +127,6 @@ def get_table_info_main(tree_nodes,res_path):
                h5_client.append_table(filed_df,'filed_df')
                h5_client.append_table(other_df,'other_df')
                h5_client.append_table(sample_df,'sample_df')
-               # a = filed_df.to_html().replace('\n','')
-               # b = other_df.to_html().replace('\n','')
-               # c = sample_df.to_html().replace('\n','')
 
           print(h5_path)
 
