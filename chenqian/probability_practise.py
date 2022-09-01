@@ -34,6 +34,8 @@ def pi_distributes(lamd='lambda',k='k'):
     k = sy.symbols(k)
     pi_dist = (lamd**k * sy.exp(-lamd))/sy.factorial(k)
     return pi_dist
+
+
 # practise_5
 x = sy.symbols('x')
 y = sy.symbols('y')
@@ -492,3 +494,97 @@ for k in range(0,6):
     a = calc_C(k,n1)*calc_C(i-k,n2)
     b = b + a
 # 为啥我这里算出来有问题？不能反证? 弄个
+
+# ----------------------------- 28 -------------------------------- #
+# 求 MAX(X,Y)的分布律
+# 对原分布律进行分解
+
+
+'''
+V = max(X,Y)
+P{V <=1} = P{X=1,Y=1} + P{X=0,Y=1} + P{X=1,Y=0}
+
+'''
+# 4) W= X+Y的分布律
+# 参考，为两个互不相容事件求并
+'''
+W  = np.arange(0,8)
+'''
+
+
+
+
+# ======================================== 随机变量的数字特征 ============================================ #
+
+# 例题阶段
+f_x = 1/theta*(sy.exp(-x/theta))
+
+# x >0
+F_x = sy.integrate(f_x,(x,0,'x'))
+
+# 串联是求交集
+# N = min(X,Y)
+# 1-[1- F(x)]**2
+
+F_min = 1-(1-F_x)**2
+f_min = F_min.diff(x)
+
+E_x = sy.integrate(x*f_min,x)
+EX = -E_x.evalf(subs={x:0})
+
+# 例3
+'''
+8:20到站,两趟到站的车
+每隔20分钟来一趟
+求候车时间期望
+'''
+
+# 0830
+p_30 = 3/6
+
+p_10 = 1/6
+
+p_50  = 2/6
+
+# 候车时间的数学期望为不同的等待周期
+
+# 第一个钟头上车的期望
+(p_30 * 10 + 30 * p_50)
+
+# 在第一个钟头没上车的情况下 1 - 2/6  - 3/6
+# 再考虑第二个钟头上车的期望
+ex = 1/6 *(50 *p_10 + 70 * p_30 + 90 *p_50 ) + (p_30 * 10 + 30 * p_50)
+
+# 例4
+pass
+
+# 例子5
+
+
+# eg.6
+X = pi_distributes(lamd='lambda',k='k')
+E_X   = sy.summation(k * X,(k,0,sy.oo))
+
+# eg.7
+a = sy.symbols('a')
+b = sy.symbols('b')
+f_x = 1/(b-a)
+E_x = sy.integrate(x*f_x,(x,a,b)).simplify()
+
+# eg.8
+f_v = 1/a
+V = sy.symbols('v') # 过度变量
+W = k*V**2
+
+# 由 gx_fx
+E_w = sy.integrate(W*f_v,(V,0,a))
+
+# eg.9
+f_xy = 3/(2*x**3*y**2)
+E_y = sy.integrate(f_xy*y,(y,1/x,x),(x,1,sy.oo))
+E_xy = sy.integrate(f_xy*(1/y/x),(y,1/x,x),(x,1,sy.oo))
+
+# eg.10
+f_y = 1/theta *sy.exp(-y/theta)
+
+# 
