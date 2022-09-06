@@ -13,6 +13,11 @@ z = sy.symbols('z')
 k = sy.symbols('k')
 u = sy.symbols('u')
 
+m = sy.symbols('m')
+n = sy.symbols('n')
+
+
+
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
@@ -34,7 +39,6 @@ def pi_distributes(lamd='lambda',k='k'):
     k = sy.symbols(k)
     pi_dist = (lamd**k * sy.exp(-lamd))/sy.factorial(k)
     return pi_dist
-
 
 # practise_5
 x = sy.symbols('x')
@@ -467,7 +471,7 @@ i = sy.symbols('i')
 k = sy.symbols('k')
 coefficent = calc_C(i,k)
 # 对原式进行变形
-f_26 = sy.exp(-(lamd1+lamd2))/sy.factorial(i) *(lamd1+ lamd2)**i
+f_26 = sy.exp(-(lamd1+lamd2))/sy.factorial(i) *(lamd1 + lamd2)**i
 # Z~ pi(lamd1+lamd2)
 
 # -------------------- 27 --------------------- #
@@ -479,9 +483,7 @@ f_26 = sy.exp(-(lamd1+lamd2))/sy.factorial(i) *(lamd1+ lamd2)**i
 
 # 变形没成功
 
-
 i = 5
-
 
 n1 = 1
 n2 = 2
@@ -499,12 +501,11 @@ for k in range(0,6):
 # 求 MAX(X,Y)的分布律
 # 对原分布律进行分解
 
-
 '''
 V = max(X,Y)
 P{V <=1} = P{X=1,Y=1} + P{X=0,Y=1} + P{X=1,Y=0}
-
 '''
+
 # 4) W= X+Y的分布律
 # 参考，为两个互不相容事件求并
 '''
@@ -556,10 +557,9 @@ p_50  = 2/6
 ex = 1/6 *(50 *p_10 + 70 * p_30 + 90 *p_50 ) + (p_30 * 10 + 30 * p_50)
 
 # 例4
-pass
+
 
 # 例子5
-
 
 # eg.6
 X = pi_distributes(lamd='lambda',k='k')
@@ -587,4 +587,13 @@ E_xy = sy.integrate(f_xy*(1/y/x),(y,1/x,x),(x,1,sy.oo))
 # eg.10
 f_y = 1/theta *sy.exp(-y/theta)
 
-# 
+# eg.11
+'''
+根据利润公式列出模型公式
+'''
+
+Q_x_1 = m * y -n*(x-y)
+Q_x_2  = m*x
+
+E_Q = (m+n)*theta - (m+n)*theta*sy.exp(-(x/theta)) - n*x
+D_eq = E_Q.diff(x)
