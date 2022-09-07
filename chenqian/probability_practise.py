@@ -16,6 +16,7 @@ u = sy.symbols('u')
 m = sy.symbols('m')
 n = sy.symbols('n')
 
+i = sy.symbols('i')
 
 
 lamd = sy.symbols('lambda')
@@ -587,7 +588,6 @@ E_xy = sy.integrate(f_xy*(1/y/x),(y,1/x,x),(x,1,sy.oo))
 # eg.10
 f_y = 1/theta *sy.exp(-y/theta)
 
-# eg.11
 '''
 根据利润公式列出模型公式
 '''
@@ -597,3 +597,30 @@ Q_x_2  = m*x
 
 E_Q = (m+n)*theta - (m+n)*theta*sy.exp(-(x/theta)) - n*x
 D_eq = E_Q.diff(x)
+
+# eg.11
+'''
+设X = [0,1] (在第i站是否下车围)
+'''
+
+# 任意乘客在第i站不下车的概率为9/10,因此20位旅客都不在i站下车的概率为(9/10)**20,在第i站有人下车的概率
+P = 1 - (9/10)**20
+
+E_Xi =  1 * P
+E_X = 10 * E_Xi
+
+# eg.12
+# 因为I(A)和R(Ω)两个随机变量独立
+
+'''
+V = IR
+E_V = E_IR
+E_I*E_R
+'''
+
+g_i = 2*i
+h_r = r**2/9
+E_IR = sy.integrate(g_i,(i,0,1))*sy.integrate(h_r,(r,0,3))
+
+
+# ----------------------- variance ------------------------- #
