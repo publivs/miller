@@ -35,8 +35,8 @@ def initial_file_path(select_df,all_df,res_path = 'all_data_set_path'):
     #     need_sub = '1'
     if need_sub != '0':
         for i in  range(select_df.__len__()):
-                select_df_i = select_df.iloc[i].to_frame().T
-                res_path,all_df = initial_file_path(select_df_i,all_df,res_path)
+            select_df_i = select_df.iloc[i].to_frame().T
+            res_path,all_df = initial_file_path(select_df_i,all_df,res_path)
 
     else:
     # 不等於0
@@ -64,9 +64,12 @@ def initial_file_path(select_df,all_df,res_path = 'all_data_set_path'):
             table_cn_name = select_df['menu_name'].iloc[0]
             if table_cn_name is None:
                 pass
+
             h5_path = f'''{res_path}\\{table_cn_name}'''
-            # print(h5_path)
-            append_table_main(guid,h5_path)
+            print(h5_path)
+            if not os.path.exists(h5_path+'_'+'table'+'.h5'):
+                    sleep_time = time.sleep(np.random.randint(3,4))
+                    append_table_main(guid,h5_path)
             return res_path,all_df
 
     last_path = '\\'+res_path.split('\\')[-1:][0]
@@ -105,13 +108,30 @@ def append_table_main(guid,h5_group_path_rela):
 
     h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
 
-    h5_client.append_table(fields_describe_df,'fields_describe_df')
-    if not table_field_df.empty:
-        h5_client.append_table(table_field_df,'table_field_df')
+    table_en_name = res['data']['table_describle']['table_name']
+    example_url = f'''http://gogoaldata.go-goal.cn/api/v1/dd_data/get_table_content?table_name={table_en_name}'''
+    exmaple_text = connect_url(example_url,req_headers)
+    exmaple_text = json.loads(exmaple_text.text)
+    if exmaple_text['code'] == 500:
+        exmaple_df = pd.DataFrame()
+    else:
+        exmaple_df = pd.DataFrame(exmaple_text['data'])
+        exmaple_df.columns = [str__.strip('[]') for str__ in exmaple_df.columns]
 
-    if not describe_df.empty:
-        describe_df = describe_df.astype('str')
-        h5_client.append_table(describe_df,'describe_df')
+    # 枚举描述
+    h5_client.append_table(fields_describe_df,'fields_describe_df')
+
+    # 表字段信息
+    h5_client.append_table(table_field_df,'table_field_df')
+
+    # 表描述
+    describe_df = describe_df.astype('str')
+    h5_client.append_table(describe_df,'describe_df')
+
+    # 表样例信息
+    exmaple_df = exmaple_df.astype('str')
+    h5_client.append_table(exmaple_df,'exmaple_df')
+
     sleep_time = time.sleep(np.random.randint(3,4))
 
 

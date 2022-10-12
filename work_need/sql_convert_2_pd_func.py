@@ -68,8 +68,6 @@ def generate_test_df():
         #                                     'currency_cd_new_lab','detail_asset_code_new']
                                 )
 
-
-
     data_matrix['node_id'] = expend_shuffle(node_id)
     data_matrix['stanproject_id'] = expend_shuffle(stanproject_id)
     data_matrix['special_bussiness_type'] = expend_shuffle(special_bussiness_type)

@@ -6,18 +6,16 @@ import scipy as sp
 # 引入正态分布
 from scipy.stats import norm
 
+
 # 声明符号变量
 x = sy.symbols('x')
 y = sy.symbols('y')
 z = sy.symbols('z')
 k = sy.symbols('k')
 u = sy.symbols('u')
-
 m = sy.symbols('m')
 n = sy.symbols('n')
-
 i = sy.symbols('i')
-
 
 lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
@@ -622,5 +620,45 @@ g_i = 2*i
 h_r = r**2/9
 E_IR = sy.integrate(g_i,(i,0,1))*sy.integrate(h_r,(r,0,3))
 
-
 # ----------------------- variance ------------------------- #
+
+# eg.2
+
+'''
+D_X = ex**2 - (ex)**2
+'''
+
+# D_X = E_xx - EX_2
+
+# eg.3
+'''
+E[X(X-1)+X] = E[X**2]
+E[X(X-1)] + E(X)
+sy.summation( k(k-1)lamda ,(k,0,sy.oo))
+'''
+
+# eg.4 均匀分布
+
+
+# eg.5 设置随机变量X 服从指数分布
+E_XX = 1
+D_X = E_XX -[E_X]**2
+
+# 方差的性质
+'''
+D(cx)= C^2 *DY
+D(X+Y) = D(X) + D(Y) + 2E((X - E(X))(Y-E(Y)))
+'''
+
+# eg.7
+#
+
+
+
+
+# eg.8
+# X ~ N(22.4,0.03^2) Y~N(22.5,0.04 ^2)
+# P{X < Y}
+# Z = X - Y
+# Z ~ N(-0.1,)
+# P{}
