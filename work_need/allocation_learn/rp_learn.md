@@ -1,4 +1,11 @@
+
 风险平价(Risk-Parity)
+
+参考资料:
+
+[你真的搞懂了风险平价吗？ - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/38301218)
+
+[资产瞎配模型（三）：风险平价及其优化 - 腾讯云开发者社区-腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1397794)
 
 理论基础:
 
@@ -68,7 +75,7 @@ $$
 
     $\frac{ \partial (w^TΣw) }{ \partial w } = (Σ^T + Σ)w = 2Σw$
 
-对于组合风险,
+对于组合，风险就是
 
   $  \sigma = \sqrt{w^TΣw}$
 
@@ -84,16 +91,47 @@ $TRC_i = w_i\frac{ \partial \sigma_p }{ \partial w_i } = w_i\frac{cov(r_i,r_p)}{
 
 $∵ TRC = \sqrt{(w^TΣw)}$
 
-那么各大资产的风险贡献和总数相关
+由模型假设,各大资产的风险贡献相同,不妨把总风险平摊到每个资产类型上
 
-    $BRC = TRC * [1/ N,...,1/N]$
+    $BRC_i = TRC * [1/ N,...,1/N]$
 
 其中,N为配置资产类型的数量
 
 让后按照求解下列式
 
-   $\mathop{min}\limits_{w} (TRC-BRC)^2 \\ s.t. \sum\limits_{i=1}^{n} w_i = 1,0<w_i<1$
+   $\mathop{min}\limits_{w} sum(TRC_i-BRC_i)^2 \\ s.t. \sum\limits_{i=1}^{n} w_i = 1,0<w_i<1$
 
 得到权重
 
-2)利用最大夏普优化的组合
+3)风险平价 --针对半衰期调整的算法
+
+协方差衰减计算公式(针对时序公式)推导
+
+其中,
+
+    参数α为确认半衰期的衰减因子
+
+模型中半衰期因子为
+
+  $\lambda = \frac{1}{2}^{(1/T)}$，T为设置的半衰期的天数
+
+pandas中ewm的计算公式:
+
+   $		 y_t = \sum\limits_{i=0}^{i=n}\frac{(1-a)^ix_{t-i}}{(1-a)^i}$,
+
+    其中,$\alpha为(1-\lambda)$
+
+调整后的协方差计算:
+
+    $\lambda_{i*1} = [\lambda^{n},...,\lambda^{0}]$
+
+    $fraw = [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]*\lambda_{i*1} / sum(\lambda_{i*1})$
+
+
+在fraw基础上进行newey-West调整
+
+    D为延迟算子
+
+    $C_{plus} = \lambda_{(d-n)*1} * [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{(d-n)*1})$
+
+    $C_{minus} = \lambda_{(d-n)*1} * [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{(d-n)*1})$
