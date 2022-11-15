@@ -128,10 +128,10 @@ pandas中ewm的计算公式:
     $fraw = [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]*\lambda_{i*1} / sum(\lambda_{i*1})$
 
 
-在fraw基础上进行newey-West调整
+在fraw基础上进行Newey-West调整
 
     D为延迟算子
 
-    $C_{plus} = \lambda_{(d-n)*1} * [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{(d-n)*1})$
+    $C_{plus} = \lambda_{[0,n-d]*1} * [(Ret_{i[d,n]} - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{[0,n-d]*1})$
 
-    $C_{minus} = \lambda_{(d-n)*1} * [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{(d-n)*1})$
+    $C_{minus} = \lambda_{[0,n-d]*1} * [(Ret_i - RetEwma_i) * (Ret_j - RetEwma_j)]/sum(\lambda_{[0,n-d]*1})$
