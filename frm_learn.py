@@ -14,7 +14,6 @@ def standardization(data):
     sigma = np.std(data, axis=0)
     return (data - mu) / sigma
 
-
 array_list = [
     -2.456,
     -3.388,
@@ -32,6 +31,7 @@ array_list = [
     -1.608,
     -0.575
 ]
+
 array_list = np.array(array_list)
 
 answer_2 = standardization(array_list)
@@ -210,3 +210,74 @@ confi_interval = 1.37 + fi*asw_7_13_b_se
 
 fi = norm.interval(0.9)[1]
 
+#
+
+y=[-5.76,0.03,-0.25,-2.72,-3.08,-7.1,-4.1,0.14,-6.13,0.74]
+x_1=[-3.48,-0.02,-0.5,-0.18,-0.82,-2.08,-1.06,0.02,-1.66,0.68]
+x_2=[-1.37,-0.62,-1.07,-1.01,0.39,1.39,0.75,-0.63,1.31,-1.15]
+
+from scipy.stats import linregress
+df = pd.DataFrame([x_1,x_2,y]).T
+# /y = np.array(y).reshape(10,1)
+# res = linregress(df.iloc[:,:2].T.values,df.iloc[:,2].T.values)
+
+import statsmodels.api as sm
+mod=sm.OLS(y,sm.add_constant(x_1,x_2)) # 需要用sm.add_constant 手动添加截距项
+res=mod.fit()
+res.summary()
+
+y =[
+    -2.353,
+    -0.114,
+    -1.665,
+    -0.364,
+    -0.081,
+    -0.735,
+    -2.507,
+    -1.144,
+    -2.419,
+    -3.151,
+    -2.085,
+    -2.972,
+    -0.633,
+    -2.678,
+    -7.095
+]
+
+x1 =[
+    -0.409,
+    0.397,
+    -0.856,
+    1.682,
+    0.455,
+    -1.39,
+    0.954,
+    1.021,
+    -0.156,
+    1.382,
+    -0.562,
+    -1.554,
+    -1.123,
+    -0.124,
+    0.284
+]
+
+x2 = [-0.008,-1.216,-0.911,0.366,-0.639,-1.086,0.67,0.238,-0.055,1.148,-0.135,-0.299,-1.027,0.331,2.622]
+mod=sm.OLS(y,sm.add_constant(x1))
+res=mod.fit()
+res.summary()
+
+mod=sm.OLS(y,sm.add_constant(x2))
+res=mod.fit()
+res.summary()
+
+mat = pd.DataFrame([x1,x2],index=['a','b']).T
+
+COV_arr = (mat['a']-mat['a'].mean())*(mat['b']-mat['b'].mean())
+COV = COV_arr.mean()
+x1 =  np.array(x1)
+x2 =  np.array(x2)
+v1 = x1.var()
+v2 = x2.var()
+d1 = COV/v1
+d2 = COV/v2

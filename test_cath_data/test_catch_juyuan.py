@@ -94,7 +94,6 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
 
     # 根文件夹
 
-
     # ------------------------------------------ 下面的部分用递归改变 ------------------------------------------ #
     # 创建文件夹
     # data_set_path = i_dataset_name['groupName']
@@ -192,17 +191,17 @@ def initial_file_path(tree_nodes,
                 write_mark = '1'
 
         if write_mark == '0':
-                if res_path is None:
-                    res_path = initial_path
-                append_path  = '\\'+ tree_nodes[path_key]
-                append_path = append_path.replace('/','_')
-                res_path = res_path + append_path
-                print(res_path)
-                sub_nodes = tree_nodes[next_level_key]
-                if not os.path.exists(res_path):
-                    os.mkdir(res_path)
-                res_path = initial_file_path(sub_nodes,res_path,next_level_key,path_key,table_name_key)
-                return res_path
+            if res_path is None:
+                res_path = initial_path
+            append_path  = '\\'+ tree_nodes[path_key]
+            append_path = append_path.replace('/','_')
+            res_path = res_path + append_path
+            print(res_path)
+            sub_nodes = tree_nodes[next_level_key]
+            if not os.path.exists(res_path):
+                os.mkdir(res_path)
+            res_path = initial_file_path(sub_nodes,res_path,next_level_key,path_key,table_name_key)
+            return res_path
 
         # nodes一般是大于0的，如果为0那么基本是遍历到基层的子节点了,在这里实例化HDFS对象存数据
         else:
@@ -243,7 +242,6 @@ req_headers = {
 # 全分支的节点树
 all_tree_url = f'/api/productGroupTreeWithTables/8/802/ALL_TREE'
 
-
 # 获取主节点的信息
 res_all_tree = requests.get(base_url+all_tree_url,headers=req_headers)
 res_all_tree = json.loads(res_all_tree.text)
@@ -259,7 +257,7 @@ if  not os.path.exists(all_data_set_path):
 for i in range (len(all_dataset_name['nodes']) ):
     if i >= 11:
         initial_file_path(all_dataset_name['nodes'][i])
-# # 获取该对应第0个data_set 的信息
+# 获取该对应第0个data_set 的信息
 # for i in range(all_dataset_name.__len__()):
 #     i_dataset_name = all_dataset_name[i]
 

@@ -59,6 +59,7 @@ def initial_file_path(tree_nodes,
             # print('准备实例化_hdf5!!!')
             table_id = tree_nodes['MODEL_ID']
             obj_id = tree_nodes['OBJ_ID']
+
             table_name = tree_nodes['OBJ_NAME']
             table_cn_name = tree_nodes['OBJ_C_NAME']
             if table_cn_name is None:
@@ -67,9 +68,9 @@ def initial_file_path(tree_nodes,
                 table_cn_name = table_cn_name.replace('/','_').replace('\\','_')
             h5_path = f'''{res_path}\\{table_cn_name}_{obj_id}'''
             print(h5_path)
+            # if obj_id  :
+            #     print(obj_id)
 
-            # if table_id == 207 :
-            #     a= 1
             if not os.path.exists(h5_path+'_'+'table'+'.h5'):
                     sleep_time = time.sleep(np.random.randint(3,4))
                     catch_caihui_main(tree_nodes,req_headers,h5_path)
@@ -95,45 +96,68 @@ def connect_url(target_url,req_headers):
 
 def catch_caihui_main(table_info,req_headers,h5_group_path_rela):
 
+    def generate_enum_df(fields_df):
+        # COL对应的枚举详情
+        enum_df_lst = []
+        for index,df_i in fields_df.iterrows():
+            if df_i['ENUMS'].__len__() > 0:
+
+                enum_df_i = pd.DataFrame(df_i['ENUMS'])
+                enum_df_i['table'] = df_i['C_OBJNAME']
+                enum_df_i['col_id'] = df_i['COL_ID']
+                enum_df_i['col_name'] = df_i['COLNAME']
+                enum_df_i['obj_id'] = df_i['OBJ_ID']
+                enum_df_i['model_id'] = df_i['MODEL_ID']
+                enum_df_lst.append(enum_df_i)
+        if enum_df_lst.__len__() > 0 :
+            enum_df = pd.concat(enum_df_lst,ignore_index=True)
+        else:
+            enum_df = pd.DataFrame()
+        return enum_df
+
     table_id = table_info['MODEL_ID']
     obj_id = table_info['OBJ_ID']
     base_url  = f'''https://datadict.finchina.com/api/DataStru/DataObject?modelID={table_id}&objectID={obj_id}'''
     res_ = connect_url(base_url,req_headers)
     res = json.loads(res_.text)
 
-    if 'code' in res.keys():
-        if res['code'] == 401:
-            print(table_info['MODELNAME'],''' 有数据无法拉取...''')
-            print(res['msg'])
-            return
+    if res is not None:
+        if 'code' in res.keys():
+            if res['code'] == 401:
+                print(table_info['MODELNAME'],''' 有数据无法拉取...''')
+                print(res['msg'])
+                return
+        # 数据的DF
+        table_info_df = pd.DataFrame.from_dict({k:v for  k,v in res.items() if k not in ['TABLEDATA','FIELDS']},orient = 'index').T
+        fields_df = pd.DataFrame(res['FIELDS'])
+        fields_df_enum = fields_df.loc[:,~fields_df.columns.str.contains('ENUMS')]
+        enum_df = generate_enum_df(fields_df)
 
-    # 数据的DF
-    table_info_df = pd.DataFrame.from_dict({k:v for  k,v in res.items() if k not in ['TABLEDATA','FIELDS']},orient = 'index').T
-    fields_df = pd.DataFrame(res['FIELDS'])
-    fields_df = fields_df.loc[:,~fields_df.columns.str.contains('ENUMS')]
+        try:
+            example_url =f'''https://datadict.finchina.com/api/DataStru/DataObject?modelID={table_id}&objectID={obj_id}&datatype=1'''
+            res_ = connect_url(base_url,req_headers)
+            res_example = json.loads(res_.text)
+        except:
+            res_example = {}
 
-    try:
-        example_url =f'''https://datadict.finchina.com/api/DataStru/DataObject?modelID={table_id}&objectID={obj_id}&datatype=1'''
-        res_ = connect_url(base_url,req_headers)
-        res_example = json.loads(res_.text)
-    except:
-        res_example = {}
+        h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
 
-    h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
+        if res_example['TABLEDATA'] is not None:
+            if str(res_example['TABLEDATA']).__len__() > 5:
+                example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
+                if not example_table_df.empty:
+                    h5_client.append_table(example_table_df,'example_table_df')
 
-    if res_example['TABLEDATA'] is not None:
-        if str(res_example['TABLEDATA']).__len__() > 5:
-            example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
-            if not example_table_df.empty:
-                h5_client.append_table(example_table_df,'example_table_df')
+        if not table_info_df.empty:
+            table_info_df = table_info_df.astype('str')
+            h5_client.append_table(table_info_df,'table_info_df')
 
-    if not table_info_df.empty:
-        table_info_df = table_info_df.astype('str')
-        h5_client.append_table(table_info_df,'table_info_df')
-
-    if not fields_df.empty:
-        h5_client.append_table(fields_df,'fields_df')
-
+        if not fields_df.empty:
+            h5_client.append_table(fields_df_enum,'fields_df')
+        if not enum_df.empty:
+            h5_client.append_table(enum_df,'enum_df')
+    else:
+        print(table_id,obj_id,'''该表出问题''')
 
 
 tree_url = 'https://datadict.finchina.com/api/DataStru/Tree?IsDeep=true'
