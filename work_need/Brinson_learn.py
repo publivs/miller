@@ -57,8 +57,9 @@ hs_300_weight = ak.index_stock_cons_weight_csindex('000300')
 
 quote_hs_300 = ak.stock_zh_index_daily('sh000300')
 quote_hs_300['date'] = pd.to_datetime(quote_hs_300['date'])
-quote_hs_300['rev'] = quote_hs_300['close']/quote_hs_300['close'].iloc[0]-1
 quote_hs_300.set_index('date',inplace=True)
+quote_hs_300['rev'] = quote_hs_300['close']/quote_hs_300['close'].iloc[0]-1
+
 hs300_ni = quote_hs_300['rev']
 
 #300 ETF的行业持仓
