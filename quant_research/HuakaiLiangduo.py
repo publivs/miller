@@ -10,9 +10,6 @@ pd.options.display.notebook_repr_html=False  # 表格显示
 plt.rcParams['figure.dpi'] = 75  # 图形分辨率
 sns.set_theme(style='darkgrid')  # 图形主题
 
-
-
-
 def calculateEMA(period, closeArray, emaArray=[]):
     length = len(closeArray)
     nanCounter = np.count_nonzero(np.isnan(closeArray))
