@@ -26,7 +26,6 @@ def calculateEMA(period, closeArray, emaArray=[]):
             emaArray.append(ema)
     return np.array(emaArray)
 
-
 def calculateMACD(closeArray, shortPeriod=12, longPeriod=26, signalPeriod=9):
     ema12 = calculateEMA(shortPeriod, closeArray, [])
     ema26 = calculateEMA(longPeriod, closeArray, [])
