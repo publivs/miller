@@ -96,9 +96,27 @@ def get_direction(dea_t,dif_t,
             return last_direction
 
 # 端点的自动化修正
-def auto_process_exception():
-    pass
+def auto_process_exception(direction,last_direction,close,last_high,last_low):
+    '''
+    高低点分化和波段切割,应该是高低相间
+    '''
+    # 当前时刻检查异常
+    if direction == 1 and close <= last_low:
+        return -1
+    if direction == -1 and close >= last_high:
+        return -1
+    '''
+    1)dir_t-1 != dir_t
+    2)dir_
 
+
+    '''
+    if last_direction != direction:
+        return 1
+    if direction ==1 and close >= last_high:
+        return 1
+    if direction == -1 and close <= last_low:
+        return 1
 
 # 股指
 quote_hs_300 = ak.stock_zh_index_daily('sh000300')
