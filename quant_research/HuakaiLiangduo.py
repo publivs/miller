@@ -4,16 +4,17 @@ import backtrader as bt
 import akshare as ak
 import requests
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-pd.options.display.notebook_repr_html=False  # 表格显示
-plt.rcParams['figure.dpi'] = 75  # 图形分辨率
-sns.set_theme(style='darkgrid')  # 图形主题
-
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# pd.options.display.notebook_repr_html=False  # 表格显示
+# plt.rcParams['figure.dpi'] = 75  # 图形分辨率
+# sns.set_theme(style='darkgrid')  # 图形主题
 
 '''
-第二篇:https://max.book118.com/html/2021/0917/8131001052004005.shtm
+第二篇:
+https://max.book118.com/html/2021/0917/6110110111004005.shtm
 '''
+
 def calculateEMA(period, closeArray, emaArray=[]):
     length = len(closeArray)
     nanCounter = np.count_nonzero(np.isnan(closeArray))
@@ -30,14 +31,11 @@ def calculateMACD(closeArray, shortPeriod=12, longPeriod=26, signalPeriod=9):
     ema12 = calculateEMA(shortPeriod, closeArray, [])
     ema26 = calculateEMA(longPeriod, closeArray, [])
     diff = ema12 - ema26
-
     dea = calculateEMA(signalPeriod, diff, [])
     macd = (diff - dea)
-
     fast_values = diff
     slow_values = dea
     diff_values = macd
-
     return fast_values, slow_values, diff_values
 
 def get_atr(quote_df,N_input =100):
@@ -58,17 +56,48 @@ def get_atr(quote_df,N_input =100):
 
 rate_simga = 2
 
-def get_direction(dea_t,dif_t,break_value):
-    if dif_t - dea_t >break_value:
-        return 1
-    if dif_t - dea_t < - break_value:
-        return -1
+def calc_integrated_error(dif,dea,k):
+    '''
+    计算累计误差
+    '''
+    if dif[k] == dea[k]:
+        return 0
+    else:
+        arr_diff = dif[-k:] - dea[-k:]
+        integrated_error = arr_diff.sum()
+        return integrated_error
 
-def diff_integrate():
+rate_sigma = 2
+
+def get_direction(dea_t,dif_t,
+                  last_direction,
+                  integrate_error,
+                  threshold_sigma,
+                  method= '3'):
+    if method == '1':
+        if dif_t - dea_t > 0:
+            return 1
+        if dif_t - dea_t < 0:
+            return -1
+    elif method == '2':
+        if dif_t - dea_t > threshold_sigma:
+            return 1
+        if dif_t - dea_t < threshold_sigma:
+            return -1
+    elif method == '3':
+        # 上行状态
+        if integrate_error > threshold_sigma:
+            return 1
+        # 下行状态
+        elif integrate_error < -threshold_sigma:
+            return -1
+        # 未破阈值保持不变
+        else:
+            return last_direction
+
+# 端点的自动化修正
+def auto_process_exception():
     pass
-
-
-
 
 
 # 股指
@@ -77,10 +106,13 @@ quote_hs_300['date'] = pd.to_datetime(quote_hs_300['date'])
 quote_hs_300.set_index('date',inplace=True)
 quote_hs_300['pre_close'] = quote_hs_300.close.shift(1)
 
+#
 
 
-def calc_error_integrate():
-    pass
+
+
+
+
 
 '''
 https://tvc4.investing.com/8463b893927927345bc436a112d04e51/1668654369/6/6/28/history?symbol=166&resolution=D&from=1455160204&to=1459048201
