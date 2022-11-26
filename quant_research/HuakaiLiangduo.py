@@ -15,28 +15,30 @@ import requests
 https://max.book118.com/html/2021/0917/6110110111004005.shtm
 '''
 
-def calculateEMA(period, closeArray, emaArray=[]):
-    length = len(closeArray)
-    nanCounter = np.count_nonzero(np.isnan(closeArray))
-    if not emaArray:
-        emaArray.extend(np.tile([np.nan], (nanCounter + period - 1)))
-        firstema = np.mean(closeArray[nanCounter:nanCounter + period - 1])
-        emaArray.append(firstema)
-        for i in range(nanCounter + period, length):
-            ema = (2 * closeArray[i] + (period - 1) * emaArray[-1]) / (period + 1)
-            emaArray.append(ema)
-    return np.array(emaArray)
+
 
 def calculateMACD(closeArray, shortPeriod=12, longPeriod=26, signalPeriod=9):
+
+    def calculateEMA(period, closeArray, emaArray=[]):
+        length = len(closeArray)
+        nanCounter = np.count_nonzero(np.isnan(closeArray))
+        if not emaArray:
+            emaArray.extend(np.tile([np.nan], (nanCounter + period - 1)))
+            firstema = np.mean(closeArray[nanCounter:nanCounter + period - 1])
+            emaArray.append(firstema)
+            for i in range(nanCounter + period, length):
+                ema = (2 * closeArray[i] + (period - 1) * emaArray[-1]) / (period + 1)
+                emaArray.append(ema)
+        return np.array(emaArray)
+
     ema12 = calculateEMA(shortPeriod, closeArray, [])
     ema26 = calculateEMA(longPeriod, closeArray, [])
+
     diff = ema12 - ema26
     dea = calculateEMA(signalPeriod, diff, [])
     macd = (diff - dea)
-    fast_values = diff
-    slow_values = dea
-    diff_values = macd
-    return fast_values, slow_values, diff_values
+
+    return diff, dea, macd
 
 def get_atr(quote_df,N_input =100):
     def calc_tr(t_high,t_low,pre_close):
@@ -54,20 +56,33 @@ def get_atr(quote_df,N_input =100):
             atr_lst.append(atr)
     return atr_lst
 
-rate_simga = 2
 
-def calc_integrated_error(dif,dea,k):
-    '''
-    计算累计误差
-    '''
-    if dif[k] == dea[k]:
-        return 0
-    else:
-        arr_diff = dif[-k:] - dea[-k:]
-        integrated_error = arr_diff.sum()
-        return integrated_error
 
-rate_sigma = 2
+def calc_integrated_error(dif,dea):
+    # 计算累计误差
+    # 考虑同号一致性
+    def calc_cum_error(current,cum_error,):
+            if i>0 and cum_error >0 :
+                cum_error += current
+            elif i<0 and cum_error <0:
+                cum_error += current
+            else:
+                cum_error = 0
+                cum_error += current
+            return cum_error
+
+    dif_dea = pd.Series(dif - dea)
+    current = 0
+    cum_error = 0
+    cum_list = []
+    for i in dif_dea:
+        if i == 0:
+            cum_error = 0
+        else:
+            cum_error = calc_cum_error(i,cum_error,)
+            cum_list.append(i)
+    return cum_list
+
 
 def get_direction(dea_t,dif_t,
                   last_direction,
@@ -95,6 +110,12 @@ def get_direction(dea_t,dif_t,
         else:
             return last_direction
 
+def generate_point_high_and_low():
+    '''
+    判断并生成出高低点
+    '''
+    pass
+
 # 端点的自动化修正
 def auto_process_exception(direction,last_direction,close,last_high,last_low):
     '''
@@ -107,9 +128,8 @@ def auto_process_exception(direction,last_direction,close,last_high,last_low):
         return -1
     '''
     1)dir_t-1 != dir_t
-    2)dir_
-
-
+    2)dir_t =1,close_t > last_high
+    3)dir_t = -1,close < last_low
     '''
     if last_direction != direction:
         return 1
@@ -118,14 +138,33 @@ def auto_process_exception(direction,last_direction,close,last_high,last_low):
     if direction == -1 and close <= last_low:
         return 1
 
+def generate_statu(dir_t,exception_t):
+    '''
+
+    '''
+    status = dir_t * exception_t
+    # 当status = 1时,代表了上行没有异常状态;或者下行并出现异常状态
+    return status
+
 # 股指
 quote_hs_300 = ak.stock_zh_index_daily('sh000300')
 quote_hs_300['date'] = pd.to_datetime(quote_hs_300['date'])
 quote_hs_300.set_index('date',inplace=True)
 quote_hs_300['pre_close'] = quote_hs_300.close.shift(1)
 
-#
 
+
+class Calc_high_low:
+    def __init__(self,df) -> None:
+        self.quote_df = df
+        self.dea,self.dif,self.macd = calculateMACD(self.quote_df['close'],)
+        self.atr = get_atr(self.quote_df)
+        self.rate_simga = 2
+        self.sigma_t = self.rate_simga * self.atr
+        self.integrate_lst = calc_integrated_error(self.dif,self.dea)
+
+
+calc_obj = Calc_high_low(quote_hs_300)
 
 
 
