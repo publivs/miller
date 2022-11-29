@@ -34,7 +34,9 @@ fig.show()
 
 
 #计算债券的现金流列表，每一现金流对应的零息利率，每一现金流距离指定时间点间的时间距离
-def cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate, duration , rate_list,freq = 1):
+def cal_cashrtime(bar,couponrate,
+                 startdate,next_coupon_date,enddate,
+                 freq = 1):
     """
    计算债券的现金流列表，每一现金流对应的零息利率，每一现金流距离指定时间点间的时间距离
    Args:
@@ -57,11 +59,40 @@ def cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate, duration , 
     cashflow.append(bar)
     time_list.append((enddate-startdate)/timedelta(365))
     #插值法获取零息利率
+    return cashflow,time_list
+
+def get_rate_list(duration,rate_list,time_list):
     f=interpolate.interp1d(x=duration,y=rate_list,kind='slinear')
     r_list = list(f(time_list))
-    return cashflow,time_list,r_list
+    return r_list
 
+#债券精确定价函数
+def bond_preciseprice(bar,coup_rate,r_list,time_list):
+    """
+   计算一只债券的精确定价
+   Args:
+       bar:  债券的票面价值
+       coup_rate: 债券的票面利率
+       r_list: 每一现金流对应的零息利率
+       time_list: 每一现金流离目前的时间点
+   Returns:
+       返回债券的精确定价
+    """
+    per_coupon = bar * coup_rate
+    discount_coupon = 0
+    for r,time in zip(r_list,time_list):
+        if(r != r_list[-1]):
+            discount_coupon = discount_coupon + per_coupon/(1 + r*0.01)**time
+    return (discount_coupon + bar/(1 + r_list[-1]*0.01)**time_list[-1])
 
-def cy_cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate, duration , rate_list,freq = 1):
+#配置22国开05信息配置
+bar,couponrate,startdate,next_coupon_date,enddate = 100,0.03,datetime.datetime(2022,5,10),\
+                                                datetime.datetime(2023,1,16),datetime.datetime(2032,1,17)
+cashflow,time_list = cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate)
 
-    pass
+r_list =get_rate_list(duration,rates_new_sell,time_list)
+
+price2205 = bond_preciseprice(bar,couponrate,r_list,time_list)
+print("22国开05的定价为：",price2205)
+
+pd.to_datetime('20200101').toordinal
