@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.offline as of  # 这个为离线模式的导入方法
 import datetime
 from scipy import interpolate
+from scipy import optimize as so
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -31,7 +32,6 @@ fig.update_layout(
     yaxis_title = '收益率(%)'#定义y坐标名称
 )
 fig.show()
-
 
 #计算债券的现金流列表，每一现金流对应的零息利率，每一现金流距离指定时间点间的时间距离
 def cal_cashrtime(bar,couponrate,
@@ -85,14 +85,46 @@ def bond_preciseprice(bar,coup_rate,r_list,time_list):
             discount_coupon = discount_coupon + per_coupon/(1 + r*0.01)**time
     return (discount_coupon + bar/(1 + r_list[-1]*0.01)**time_list[-1])
 
+#计算麦考利久期
+def mcduration(cashflow,time_list,r_list,presentvalue):
+    mcduration = 0
+    arr_len = len(cashflow)
+    for i in range(arr_len):
+        cash = cashflow[i]
+        time = time_list[i]
+        r = r_list[i]
+        mcduration = mcduration + time * ( cash / (1 + r * 0.01) ** time) / presentvalue
+    return mcduration
+
+#计算ytm
+def YTM(presentvalue,cashflow,time_list,bar):
+    def ff(y):
+        cash_all = []
+        for cash,time in zip(cashflow,time_list):
+            if(cash != cashflow[-1]):
+                cash_all.append(cash/pow(1+y,time))
+        return np.sum(cash_all)+cashflow[-1]/pow(1+y,time_list[-1])-presentvalue
+    return float(so.fsolve(ff,0.01))
+
+#计算修正久期
+def dduration(cashflow,time_list,r_list,presentvalue):
+    return mcduration(cashflow,time_list,r_list,presentvalue)/(1+YTM(presentvalue,cashflow,time_list,bar))
+
+
+
 #配置22国开05信息配置
 bar,couponrate,startdate,next_coupon_date,enddate = 100,0.03,datetime.datetime(2022,5,10),\
                                                 datetime.datetime(2023,1,16),datetime.datetime(2032,1,17)
+
 cashflow,time_list = cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate)
 
 r_list =get_rate_list(duration,rates_new_sell,time_list)
 
 price2205 = bond_preciseprice(bar,couponrate,r_list,time_list)
+
 print("22国开05的定价为：",price2205)
 
-pd.to_datetime('20200101').toordinal
+mcd2205 =  mcduration(cashflow,time_list,r_list,price2205)
+
+dd2205 = dduration(cashflow,time_list,r_list,price2205)
+
