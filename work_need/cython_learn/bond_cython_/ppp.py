@@ -31,7 +31,7 @@ fig.update_layout(
     xaxis_title = '期限', #定义x坐标名称
     yaxis_title = '收益率(%)'#定义y坐标名称
 )
-fig.show()
+# fig.show()
 
 #计算债券的现金流列表，每一现金流对应的零息利率，每一现金流距离指定时间点间的时间距离
 def cal_cashrtime(bar,couponrate,
@@ -61,7 +61,7 @@ def cal_cashrtime(bar,couponrate,
     #插值法获取零息利率
     return cashflow,time_list
 
-def get_rate_list(duration,rate_list,time_list):
+def calc_rate_list(duration,rate_list,time_list):
     f=interpolate.interp1d(x=duration,y=rate_list,kind='slinear')
     r_list = list(f(time_list))
     return r_list
@@ -97,7 +97,7 @@ def mcduration(cashflow,time_list,r_list,presentvalue):
     return mcduration
 
 #计算ytm
-def YTM(presentvalue,cashflow,time_list,bar):
+def YTM(presentvalue,cashflow,time_list):
     def ff(y):
         cash_all = []
         for cash,time in zip(cashflow,time_list):
@@ -107,10 +107,19 @@ def YTM(presentvalue,cashflow,time_list,bar):
     return float(so.fsolve(ff,0.01))
 
 #计算修正久期
-def dduration(cashflow,time_list,r_list,presentvalue):
-    return mcduration(cashflow,time_list,r_list,presentvalue)/(1+YTM(presentvalue,cashflow,time_list,bar))
+def dduration(cashflow,time_list,r_list,presentvalue,ytm):
+    a = mcduration(cashflow,time_list,r_list,presentvalue)
+    b = (1+ytm)
+    c = a/b
+    return c
 
-
+#计算凸性
+def Convexity(cashflow,time_list,presentvalue,ytm):
+    temp = []
+    ytm = ytm
+    for cash,time in zip(cashflow,time_list):
+        temp.append(cash*(time*time + time)/pow(1+ytm,time))
+    return (1/(presentvalue*pow(1+ytm,2))) * np.sum(temp)
 
 #配置22国开05信息配置
 bar,couponrate,startdate,next_coupon_date,enddate = 100,0.03,datetime.datetime(2022,5,10),\
@@ -118,7 +127,7 @@ bar,couponrate,startdate,next_coupon_date,enddate = 100,0.03,datetime.datetime(2
 
 cashflow,time_list = cal_cashrtime(bar,couponrate,startdate,next_coupon_date,enddate)
 
-r_list =get_rate_list(duration,rates_new_sell,time_list)
+r_list = calc_rate_list(duration,rates_new_sell,time_list)
 
 price2205 = bond_preciseprice(bar,couponrate,r_list,time_list)
 
@@ -126,5 +135,10 @@ print("22国开05的定价为：",price2205)
 
 mcd2205 =  mcduration(cashflow,time_list,r_list,price2205)
 
-dd2205 = dduration(cashflow,time_list,r_list,price2205)
+ytm  = YTM(price2205,cashflow,time_list)
 
+dd2205 = dduration(cashflow,time_list,r_list,price2205,ytm)
+
+conv = Convexity(cashflow,time_list,price2205,ytm)
+
+print(1)
