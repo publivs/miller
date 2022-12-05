@@ -1,4 +1,4 @@
-# Cython笔记本
+#  Cython笔记本
 
 # Cython学习笔记
 
@@ -22,14 +22,23 @@ from distutils.core import setup
 
 from Cython.Build import cythonize
 
-# Example_Cython:写着Cython代码的Pyx文件
+import os
+import numpy as np
+import scipy
+
+os.environ["CC"] = "gcc-8.1.0" # 这里要在CMD里面 gcc -v看一下自己对应的配置版本安装没
+
+ext_mod = cythonize(["time_libs.pyx"], 对具体的pyx文件进行Cythonize化
+                    language='c++', # 指定语言
+                    language_level = '3')
 
 setup(
-
-        name="Example Cython",
-
-        ext_modules=cythonize(["examples_cy.pyx"])
-        )
+      name="Example Cython", # Example_Cython:给新包起名字
+      ext_modules=ext_mod,
+      cmdclass= {'build_ext':build_ext},
+      include_dirs=[np.get_include(),#  指定复载的包
+      				scipy.get_include()]
+      )
 
 ```
 
@@ -45,7 +54,7 @@ setup(
 
 #### 2)Cythonize方法
 
-在 Cmd中输入Cython --help即可查看所有对应的指令。
+在 Cmd中输入Cythonize --h 即可查看所有对应的指令。
 
 **--include-dir**:指定编译时包含的C/C++头文件或其他*.py或*.pyx文件
 
@@ -69,35 +78,104 @@ example_code是示例的pyx代码
 
 
 
-指定编译:
 
-​	
+
+#### 3) 命令行Cython方法
+
+生成c/cpp文件
 
 ```bash
-gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing C:\Programs\Python\Python37 -o ./test_cython_code.so  ./test_cython_code.c
+cython test_cython_code.pyx -o ./test_cython_code.c -3 --cplus --gdb
+```
+
+指定编译:
+
+```bash
+gcc -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing C:\Programs\Python\Python37 -o ./test_cython_code.pyd  ./test_cython_code.c
 ```
 
 
 
+### Cython:Jupyter直接交互使用
 
 
 
+1、保证运行的环境安装了Cython
 
-## Cython:Jupyter直接交互使用
+2、安装了Ipython已经其依赖的kernel
 
 
-kernel会帮你自动编译
 
+```python
 %load_ext cython
 
-%%cython -a
+%%cython
 
-def func(a,b):
+cpdef func_test(a,b):
 
-​	return a+b
+    return a+b
 
-即可
+test_value = func_test(1,2)
+print(test_value)
 
-可以使用后台帮忙编译加载 Cython计算函数
+```
 
-针对写好的Cython函数可以直接验算
+可以使用后台帮忙编译加载 Cython计算函数,针对写好的Cython函数可以直接验算交互。
+
+ipython-Cython有非常多的扩展功能
+
+
+
+## Cython中的字符
+
+在Cython中处理字符串类型的问题，如果没有需要对特定类型做明确的处理，最好也最快的方法是根本不用给他们指定类型，这意味着Cython中的字符串对象会被视为通用PyObject*。
+
+​	举例
+
+```cython
+cdef str a='Hello....'
+cdef str b='World....'
+cdef str c=a+b
+```
+
+​	**str仍然会驱动Cpy的内存管理器**，做Py级别的字符操作,事实上也起不了多大用。
+
+对上面代码块优化的办法就是**声明Cpp的内置字**符类型
+
+```cython
+from libcpp.string cimport string
+cdef string a='Hello....'
+cdef string b='World....' 
+cdef string c=a+b
+```
+
+这里推荐一下Cpp的libcpp.string的String类型,不建议使用C的char*指针，因为这需要额外手动实现这些字符串垃圾回收的繁琐逻辑，Cpp自带的足够高效，而且用法接近Cpy(**Cpython的str就是借鉴的cpp**),cpp和cpython的都有自己的内存回收逻辑。
+
+​	这里声明了cpp的string没有调用Cpython的堆栈，如果有大量的字符拼接想要Cpp优化,做类似于上面代码块的操作就行。
+
+​	字符串的操作，在返回之前（注意这个描述）以C/C++原生的数据类型去执行，效率相对高效，这时才需要在Cython代码的上下文静态指定C数据类型char\*、std::string。然而执行到return语句之后，由于Python字符串的PyObject属于非常糟糕的过度封装。会导致之前Cython所做的性能优化大打折扣。简而言之，Cython对字符串输出的优化的空间其实非常有限。
+
+​	事实上，Cpython的原生字符性能足够，而且字符操作优化在Cython优化中中上限比较明显，这里不应该是学习 Cython的重点。
+
+
+
+## Cython中的不同类型的数组
+
+1、Cpython:Pyobject-List
+
+​		顾名思义，这个list就是cpython原生的数组对象。Cython的版本list实质上是静态版本的PyListObject这个C级别的实现。
+
+
+
+
+
+2、Cython;np.ndarray
+
+3、cython-cpp:vector
+
+
+
+
+
+
+
