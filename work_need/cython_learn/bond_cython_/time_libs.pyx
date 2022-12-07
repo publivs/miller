@@ -2,7 +2,12 @@
 from libc.time cimport tm,mktime,time_t,strptime,strftime,localtime
 from libcpp.string cimport string
 from libc.stdio cimport  sscanf
+cimport cython
 
+@cython.boundscheck(False)         # 关闭数组下标越界
+@cython.wraparound(False)          # 关闭负索引
+@cython.cdivision(True)            # 关闭除0检查
+@cython.initializedcheck(False)    # 关闭检查内存视图是否初始化
 cdef inline time_t to_windows_stamp(string dateTimeStr):
     cdef tm _tm;
     cdef int year,month,day,hour,minute,second
