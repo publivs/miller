@@ -9,7 +9,7 @@ from libc.math cimport log as clog
 from libc.math cimport pow as cpow
 from libc.math cimport erfc
 
-cdef norm_cdf_cy(double x):
+cdef norm_cdf_cy(double x,):
     return 1/2 * erfc(-x/csqrt(2))
 
 cpdef vanilla_option_cy(
