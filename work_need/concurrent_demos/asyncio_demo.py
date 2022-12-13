@@ -22,7 +22,6 @@ async def task_C(a):
     await asyncio.sleep(a)
     print(f"task_C结束!!耗时{take_time()}")
 
-
 async def task_exect():
     tasks = [task_A(i) for i in range(3,6)]
     await asyncio.gather(*tasks)
