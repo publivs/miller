@@ -16,7 +16,7 @@ int main(int argc,const char* argv[] ){
 
     int unit = counts/THREAD_NUMS;
     omp_set_num_threads(THREAD_NUMS);
-    #pragma omp parallel 
+    #pragma omp parallel
     {
     int id = omp_get_thread_num();
     int left = id*unit+1;

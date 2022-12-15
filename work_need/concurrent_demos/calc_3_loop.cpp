@@ -19,7 +19,8 @@ int main(int argc, const char* argv[]){
     int N = a.size();
 
     #pragma omp parallel for schedule(static,3)
-    for(size_t i=0;i<N;i++){
+    for(size_t i=0;i<N;i++)
+    {
         a[i] = a[i]+b[i];
         printf("线程id:%d,a[%d]+b[%d] = %g\n",omp_get_thread_num(),i,i,a[i]);
 

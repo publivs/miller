@@ -16,16 +16,16 @@ int main(int argc,const char* argv[])
     {
     int id = omp_get_thread_num();
     thrdSum[id] = 0;
-    #pragma omp for 
+    #pragma omp for
     for(i=1;i<100;i++){
         thrdSum[id] += i;
-    }
+        }
 
     for(i=0;i<4;i++){
         sum+=thrdSum[i];
-    }
+        }
 
     }
 
-        printf("result:%d\n",sum);
+    printf("result:%d\n",sum);
 }
