@@ -11,6 +11,7 @@ import cv2 as cv
 import numpy as np
 import random
 
+# C:\Program Files\Tesseract-OCR
 
 
 chrome_options = Options()
@@ -25,41 +26,59 @@ chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64
 
 # chrome_options.add_argument('--headless') # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败,可视化带ui的正常使用,方便调试
 
+def check_proxy():
+    url="https://www.baidu.com/"
+    ip="114.96.199.198"
+    port = "4325"
+
+    proxy={"http":"http://"+ip+":"+port}
+    headers={"User-Agent":"Mozilla/5.0"}
+    res=requests.get(url,proxies=proxy,headers=headers)
+    print(res.status_code)  # 返回200：表示该ip代理是可用的
+    print('------------------')
+
+    chrome_path = '/Users/dannihong/downloads/webdriver_browser/chromedriver86'
+    options=webdriver.ChromeOptions()
+    options.add_argument('--proxy-server=http://'+ip+"："+port)
+    options.add_argument('--proxy-server=http://114.96.199.198：4325')  # 必须是中文冒号
+    driver=webdriver.Chrome(executable_path=chrome_path, chrome_options=options)
+    driver.get(url)
+
 # # 代理池处理
-# proxy_arr = pool_list = [
-#     "111.225.152.36:8089",
-#     "182.139.111.131:9000",
-#     "121.13.252.62:41564",
-#     "218.1.200.97:57114",
-#     "111.225.153.6:8089",
-#     "171.92.20.187:9000",
-#     "183.147.209.205:9000",
-#     "182.139.110.128:9000",
-#     "111.225.153.216:8089",
-#     "111.225.153.138:8089",
-#     "61.171.107.221:9002",
-#     "171.92.21.83:9000",
-#     "171.92.21.39:9000",
-#     "115.220.6.108:8089",
-#     "115.211.47.95:9000",
-#     "183.147.208.78:9000",
-#     "111.225.152.82:8089",
-#     "111.225.153.66:8089",
-#     "182.139.110.74:9000",
-#     "122.243.14.207:9000",
-#     "106.227.36.124:9002",
-#     "111.225.152.105:8089",
-#     "111.225.152.53:8089",
-#     "171.92.21.75:9000",
-#     "113.121.36.199:9999",
-#     "114.116.2.116:8001",
-#     "117.93.180.175:9000",
-#     "115.211.42.15:9000",
-#     "202.109.157.66:9000",
-#     "111.225.152.88:8089",
-#     "182.34.17.104:9999"]
-# ip_port = random.choice(proxy_arr)  # 随机选择一个代理
-# chrome_options.add_argument(f'--proxy-server=http://{ip_port}')  # 添加代理
+proxy_arr = pool_list = [
+    "111.225.152.36:8089",
+    "182.139.111.131:9000",
+    "121.13.252.62:41564",
+    "218.1.200.97:57114",
+    "111.225.153.6:8089",
+    "171.92.20.187:9000",
+    "183.147.209.205:9000",
+    "182.139.110.128:9000",
+    "111.225.153.216:8089",
+    "111.225.153.138:8089",
+    "61.171.107.221:9002",
+    "171.92.21.83:9000",
+    "171.92.21.39:9000",
+    "115.220.6.108:8089",
+    "115.211.47.95:9000",
+    "183.147.208.78:9000",
+    "111.225.152.82:8089",
+    "111.225.153.66:8089",
+    "182.139.110.74:9000",
+    "122.243.14.207:9000",
+    "106.227.36.124:9002",
+    "111.225.152.105:8089",
+    "111.225.152.53:8089",
+    "171.92.21.75:9000",
+    "113.121.36.199:9999",
+    "114.116.2.116:8001",
+    "117.93.180.175:9000",
+    "115.211.42.15:9000",
+    "202.109.157.66:9000",
+    "111.225.152.88:8089",
+    "182.34.17.104:9999"]
+ip_port = random.choice(proxy_arr)  # 随机选择一个代理
+chrome_options.add_argument(f'--proxy-server=http://{ip_port}')  # 添加代理
 
 
 driver = webdriver.Chrome(options=chrome_options)  # 将chromedriver放到Python安装目录Scripts文件夹下
@@ -167,6 +186,8 @@ def refresh_pic():
 
 
 driver.get('https://poll.cnfic.com.cn/vote2022/index.html')  # 此处不要再放登录的网址，可以用未登录的首页
+
+
 
 driver.refresh()
 
