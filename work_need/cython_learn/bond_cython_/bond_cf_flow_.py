@@ -31,7 +31,7 @@ fig.update_layout(
     xaxis_title = '期限', #定义x坐标名称
     yaxis_title = '收益率(%)'#定义y坐标名称
 )
-# fig.show()
+fig.show()
 
 #计算债券的现金流列表，每一现金流对应的零息利率，每一现金流距离指定时间点间的时间距离
 def cal_cashrtime(bar,couponrate,

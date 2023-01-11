@@ -4,13 +4,13 @@ import docx
 
 import pandas as pd
 
-# document = Document()
-# document.add_heading('Document Title', 0)
+document = Document()
+document.add_heading('Document Title', 0)
 
-# p = document.add_paragraph('A plain paragraph having some ')
-# p.add_run('bold').bold = True
-# p.add_run(' and some ')
-# p.add_run('italic.').italic = True
+p = document.add_paragraph('A plain paragraph having some ')
+p.add_run('bold').bold = True
+p.add_run(' and some ')
+p.add_run('italic.').italic = True
 
 def df_to_word(df: pd.DataFrame,
                 report_name:str) -> docx.Document:
@@ -32,17 +32,23 @@ def df_to_word(df: pd.DataFrame,
     doc.save(f'./{report_name}')
 
 data = {
-  "calorierbes": [420, 380, 390],
-  "duratierbn": [50, 40, 45],
-  "durationverg": [50, 40, 45],
-  "duratiorgern": [50, 40, 45],
-  "calorieers": [420, 380, 390],
-  "calorierbers": [420, 380, 390],
-  "calorierbes": [420, 380, 390]
+    "calorierbes": [420, 380, 390],
+    "duratierbn": [50, 40, 45],
+    "durationverg": [50, 40, 45],
+    "duratiorgern": [50, 40, 45],
+    "calorieers": [420, 380, 390],
+    "calorierbers": [420, 380, 390],
+    "calorierbes": [420, 380, 390]
         }
 
 A = pd.DataFrame(data)
+df_to_word(A,'test_report.docx')
 
-df_to_word(A, 'test_report.docx')
-B = pd.DataFrame(data)
-df_to_word(B, 'test_report.docx')
+{
+    'product_name':'天玑航信宝集合资金信托计划',
+    '月报日期':'202005',
+    '项目名称':'天玑航信宝集合资金信托计划',
+
+
+
+}

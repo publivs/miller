@@ -445,7 +445,8 @@ bar.render_notebook()
 
 # 全球股指
 global_index_value = (np.random.randint(0,10,8) -3)/100
-index_col = ['RUS',
+index_col = [
+            'RUS',
             '深圳成指',
             '上证综指',
             '巴西INDEX',
@@ -488,10 +489,10 @@ line=(
     Line()
     .add_xaxis(xaxis_data=x)
     .add_yaxis(series_name="股票型基金",y_axis=y1,symbol="line",is_symbol_show=False,
-                linestyle_opts=opts.LineStyleOpts(color="orange", width=3.5,)
+                linestyle_opts=opts.LineStyleOpts(color="orange", width=1,)
                 )
     .add_yaxis(series_name="混合型基金",y_axis=y2,symbol="line",is_symbol_show=False,
-                linestyle_opts=opts.LineStyleOpts(color="blue", width=3.5,))
+                linestyle_opts=opts.LineStyleOpts(color="blue", width=1,))
     .set_global_opts(
                     title_opts=opts.TitleOpts(title="Line-多折线重叠"),
                     yaxis_opts=opts.AxisOpts(

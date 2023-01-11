@@ -21,7 +21,11 @@ lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
 sigma = sy.symbols('sigma')
+
+# 极坐标转换
 r = sy.symbols('r', nonnegative=True)
+
+
 
 def calc_C(n,m):
     a = sy.factorial(n)
@@ -654,11 +658,17 @@ D(X+Y) = D(X) + D(Y) + 2E((X - E(X))(Y-E(Y)))
 #
 
 
-
-
 # eg.8
 # X ~ N(22.4,0.03^2) Y~N(22.5,0.04 ^2)
 # P{X < Y}
 # Z = X - Y
 # Z ~ N(-0.1,)
 # P{}
+
+
+# 随机变量的数字特征
+
+
+# eg.10
+f_Y = 1/theta *sy.exp(-y/theta) 
+

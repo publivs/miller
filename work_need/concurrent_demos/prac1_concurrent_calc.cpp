@@ -25,17 +25,20 @@ int main()
     printf("vector gene finished...");
     double start =  omp_get_wtime();
     omp_set_num_threads(THREAD_NUMS);
-    #pragma parallel for shared(input_arr)
+    #pragma parallel for schedule(dynamic,THREAD_NUMS) shared(input_arr)
         {
         std::vector<double> inside_arr;
         double y_i;
+
         for(size_t i =0;i < input_arr.size();i++)
             {
+            int id = omp_get_thread_num();
             y_i = func_1((double)input_arr[i]);
             inside_arr.push_back(y_i);
-            printf("%f\n",y_i);
-        }
+            printf("value = %f,thread_num = %d \n",y_i,id);
+            }
     #pragma omp critical (merge_array)
+
     {
 	op_arr.insert(op_arr.end(),inside_arr.begin(),inside_arr.end());
     }
@@ -46,5 +49,6 @@ int main()
     double finish = omp_get_wtime() - start;
     printf("计算耗时%.4g\n",time);
     printf("last_one is %d",op_arr[counts-1]);
-
 }
+
+// 为啥我算出来的时单线程

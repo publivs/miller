@@ -23,6 +23,7 @@ int main(int argc,const char* argv[])
 
     for(i=0;i<4;i++){
         sum+=thrdSum[i];
+        // printf("value is %d\n",thrdSum[i]);
         }
 
     }
