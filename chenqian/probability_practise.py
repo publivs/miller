@@ -668,7 +668,13 @@ D(X+Y) = D(X) + D(Y) + 2E((X - E(X))(Y-E(Y)))
 
 # 随机变量的数字特征
 
+Y = sy.symbols('Y')
 
 # eg.10
-f_Y = 1/theta *sy.exp(-y/theta) 
+f_Y = 1/theta *sy.exp(-y/theta)
 
+# m为单位盈利，n为单位loss,x则是销售
+Q_x_l = m*y - n*(x- Y)
+Q_x = m*x
+
+E_Q  = sy.integrate(Q_x_l*f_Y,(y,0,x)) + sy.integrate(Q_x * f_Y,(y,x,sy.oo))
