@@ -678,3 +678,43 @@ Q_x_l = m*y - n*(x- Y)
 Q_x = m*x
 
 E_Q  = sy.integrate(Q_x_l*f_Y,(y,0,x)) + sy.integrate(Q_x * f_Y,(y,x,sy.oo))
+
+E_Q = (m+n)*theta - (m+n)*theta * sy.exp(-x/theta)- n*x
+
+
+
+# 例子11
+'''
+因为X1,X2,X3相互独立，且在(7,11)上服从均匀分布
+'''
+
+u = sy.symbols('u')
+
+F_u = (x-7)/(11-7)
+
+# Y = max{x1,x2,x3}的分布函数
+
+F_y = F_u ** 3
+
+# 不妨令G 为甲的赚钱数字
+# 赚钱的数学期望
+G_x = 10- x
+E_G_X = (F_y) * G_x
+E_G_X.diff(x)
+
+# 例子12
+# 每站进行观察一次
+
+# 引入随机变量,设在第i站有人下车
+# 有两种可能性
+P_no = 1-(1/10) # 每个旅客在各个车站下车是等可能的并且相互独立
+X_i_0 = P_no**20
+X_i_1 = 1- X_i_0
+E_x_i = 1 * X_i_1
+E_x  = 10 * E_x_i # 独立同分布，期望相同
+
+
+
+
+
+
