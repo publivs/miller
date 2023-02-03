@@ -1,17 +1,13 @@
 import numpy as np
 cimport numpy as np
 import pandas as pd
-
 from scipy import interpolate
-
 from libc.math cimport sqrt as csqrt
 from libc.math cimport pow as cpow
 from libc.stdio cimport  sscanf
 from libc.time cimport tm,mktime,time_t,strptime,strftime,localtime
 from libc.stdio cimport sizeof
-
-from scipy import optimize as so
-
+from scipy import optimize as so 
 DTYPE = np.intc
 
 cpdef calc_cashflow_cy(double bar,
@@ -102,6 +98,7 @@ def dduration(double mac_dura,
 
 %%cython
 import numpy as np
+
 cimport numpy as np
 cpdef Convexity_cy(list cashflow,
                 list time_list,
