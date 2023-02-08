@@ -66,13 +66,13 @@ def initial_file_path(tree_nodes,
                 pass
             else:
                 table_cn_name = table_cn_name.replace('/','_').replace('\\','_')
-            h5_path = f'''{res_path}\\{table_cn_name}_{obj_id}'''
+            h5_path = f'''{res_path}\\{table_cn_name}_{obj_id}_{table_name}'''
             print(h5_path)
             # if obj_id  :
             #     print(obj_id)
 
             if not os.path.exists(h5_path+'_'+'table'+'.h5'):
-                    sleep_time = time.sleep(np.random.randint(3,4))
+                    # sleep_time = time.sleep(np.random.randint(3,4))
                     catch_caihui_main(tree_nodes,req_headers,h5_path)
             return res_path
 
@@ -141,21 +141,24 @@ def catch_caihui_main(table_info,req_headers,h5_group_path_rela):
             res_example = {}
 
         h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
+        with open('out_put.txt', 'a') as f:
+            f.write(f'{h5_group_path_rela}\n')
+        output = 0
+        if output != 0:
+            if res_example['TABLEDATA'] is not None:
+                if str(res_example['TABLEDATA']).__len__() > 5:
+                    example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
+                    if not example_table_df.empty:
+                        h5_client.append_table(example_table_df,'example_table_df')
 
-        if res_example['TABLEDATA'] is not None:
-            if str(res_example['TABLEDATA']).__len__() > 5:
-                example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
-                if not example_table_df.empty:
-                    h5_client.append_table(example_table_df,'example_table_df')
+            if not table_info_df.empty:
+                table_info_df = table_info_df.astype('str')
+                h5_client.append_table(table_info_df,'table_info_df')
 
-        if not table_info_df.empty:
-            table_info_df = table_info_df.astype('str')
-            h5_client.append_table(table_info_df,'table_info_df')
-
-        if not fields_df.empty:
-            h5_client.append_table(fields_df_enum,'fields_df')
-        if not enum_df.empty:
-            h5_client.append_table(enum_df,'enum_df')
+            if not fields_df.empty:
+                h5_client.append_table(fields_df_enum,'fields_df')
+            if not enum_df.empty:
+                h5_client.append_table(enum_df,'enum_df')
     else:
         print(table_id,obj_id,'''该表出问题''')
 
