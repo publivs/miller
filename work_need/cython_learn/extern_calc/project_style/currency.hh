@@ -12,14 +12,14 @@ namespace ynutil{
         MoneyFormator();
         MoneyFormator(const char*);
         ~MoneyFormator();
-        
+
         std::string str(double);
-        
+
     private:
         std::locale loc;
         const std::money_put<char>& mnp;
         std::ostringstream os;
-        std::ostreambuf_iterator<char,std::char_traits<char>> iterator;    
+        std::ostreambuf_iterator<char,std::char_traits<char>> iterator;
     };
 }
 #endif
