@@ -8,6 +8,7 @@ import requests
 import time
 import sys,os
 # catch_handler
+import cry
 
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(r"C:\Users\kaiyu\Desktop\miller")
@@ -29,8 +30,11 @@ def connect_table_info_url(table_name):
 
 sleep_time = 0.1
 cookie = '''
-756427508369C797662551B7F6E4F407=C6CACBE14EA3FA51;A3F660A4EF3974D931B9F0B5DF001429=EF1A176E364C1077;9A6BF28197922FF55D8513E9ECCA188F=EF1A176E364C1077;2B4A55418B6F245261035C86D649790D=975C5CF37A9074B9CD6AD670C8F4469974A484ABCCB85602; 9A6BF28197922FF59BBE2239EA9F9CBA=7464E5EA30AFECDB; 551B07A7F9C056607698EEE32DBBD64F=D0A85E0373137FDD
-'''
+c600ae004e004e00a60076002e00ca0086003600a600=0c00;
+ 4a0022006200aa00ce00a6004e0072008600b600a6007200a600ee00=8c000c00ec001c00ec00;
+ 8200c600c600f600ae0076002e0092002200=8c000c00ec001c00ec00; aa00ce00a6004e0072008600b600a600=a946cd8a9e19776e237e2c00;
+ 8200c600c600f600ae0076002e00920022002a009e000e00a600=ea002200ca00; 4a0022006200320086007600e600ae008600e600a600=c2007600;
+ ea002200ca00ca00a600ce00ce009600f600760092002200=6600ec00a600ac00ac006c00c600cc00b40026006c00cc004600b4002c001c00ec001c00b4001c0086004c00ec00b40046000c00460066006600a6006c0086000c00ac008c008c00'''
 cookie = cookie.replace(' ','').replace('\n','')
 # cookie = cookie.replace('\n','')
 req_headers = {
@@ -42,16 +46,18 @@ req_headers = {
                 'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
                 }
 
+# 详细数据
 handler = '''https://wds.wind.com.cn/rdf/Home/ServiceHandler'''
-pay_load_query = {'way':'1','action' :'2','interfaceId':'103','params':'%255B%2522%255C%2522AShareIntroduction%255C%2522%2522%252C%2522%255C%25229490%255C%2522%2522%255D'}
-res = requests.post(f'''{handler}''',data=pay_load_query,headers=req_headers)
-res = json.loads(res.text)
 
+pay_load_pp = '''MN0Zugwk9+EynjaUhkY7zv9Eq9brY4Ttw5VDir5uvlZX7acRUZ26lYDv98m98FT857WHL6YPoDTO55w5x2y+43cju3zqesW3tsS6htVm7BFhQyZYLM7MALA1TJcGwB43v9O5Ug1otpTpBFEOlDJiNrYPvetc8UIlYdlQ/hnn3mE='''
+pay_load_query = {'way':'1','action' :'2','interfaceId':'103','params':pay_load_pp}
+# res = requests.post(f'''{handler}''',data=pay_load_query,headers=req_headers)
+# res = json.loads(res.text)
 
-menu_paylaod_pp = '''%5B%22%5C%22%20%5C%22%22%2C%22%5C%229490%5C%22%22%2C%22%5C%22%E6%8A%95%E5%86%B3%E9%A1%B9%E7%9B%AE%E7%BB%842%5C%22%22%2C%221%22%2C%22true%22%5D'''
-menu_paylaod = {'way':'1','action':'2','interfaceId':'101','param':menu_paylaod_pp,}
 
 # 获取基础的目录树
+menu_paylaod_pp = '''EWEN2czyzRIPv64PNRsKlf1zRrmm3k4iBU5UVXON43f46Y57wjrHgPDdIAiZWQy1Fz+GQH3Oud7vqn9eDqHeGy/XBLLec2G3fs5notBT1ga47/7vEDBnC9prQ1LMpQl6wKfybm4QRjtuNqL5fcmnR58ygOsvcThE7vWOHG9qQogCrGyayToQ6bj7qMTO5Mfg+5K6SicorJ1tyG5qFF+QWLKlPza5IzHJbZBsoSZ/hMZ/qG8spi5a3qxtIN/Ik3K6GH2HGbGukcdpxvlpXUc75V4VEoOVKo4/7rrHqgaNVfX2llhmdX1+WF8mZNjaJOp1toS3kvuUe5XiXYa6oToNN553H48fznaIjixwVYpHzVCmNNUUyGWmUC3T7kVn/BTCXOpuweFZaRcg3a3QroHXmTvFU/R289qwCgriTQsd41C1vzHo8zF5Ks83HgRSBpY3dLW1Z3DKkVTuDUmwmxYtFEzbLiLvP6xbENbeCjhu3vDiGvubJOHqF5LeTPP+wVjE'''
+menu_paylaod = {'way':'1','action':'2','interfaceId':'101','param':menu_paylaod_pp,}
 menu_res = requests.post(f'''{handler}''',data=menu_paylaod,headers=req_headers)
 res = json.loads(menu_res.text)
 

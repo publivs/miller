@@ -72,8 +72,12 @@ def initial_file_path(tree_nodes,
             #     print(obj_id)
 
             if not os.path.exists(h5_path+'_'+'table'+'.h5'):
-                    # sleep_time = time.sleep(np.random.randint(3,4))
-                    catch_caihui_main(tree_nodes,req_headers,h5_path)
+                    # sleep_time = time.sleep(np.random.randint(0,1))
+
+                    try:
+                        catch_caihui_main(tree_nodes,req_headers,h5_path)
+                    except:
+                        print(f'{table_cn_name}_{obj_id}_{table_name},数据有问题...')
             return res_path
 
     last_path = '\\'+res_path.split('\\')[-1:][0]
@@ -140,28 +144,43 @@ def catch_caihui_main(table_info,req_headers,h5_group_path_rela):
         except:
             res_example = {}
 
-        h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
-        with open('out_put.txt', 'a') as f:
-            f.write(f'{h5_group_path_rela}\n')
-        output = 0
-        if output != 0:
-            if res_example['TABLEDATA'] is not None:
-                if str(res_example['TABLEDATA']).__len__() > 5:
-                    example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
-                    if not example_table_df.empty:
-                        h5_client.append_table(example_table_df,'example_table_df')
+        method = 'xls'
+        output = 1
 
-            if not table_info_df.empty:
-                table_info_df = table_info_df.astype('str')
-                h5_client.append_table(table_info_df,'table_info_df')
+        if method == 'h5':
+            h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
+            if output != 0:
+                if res_example['TABLEDATA'] is not None:
+                    if str(res_example['TABLEDATA']).__len__() > 5:
+                        example_table_df = pd.DataFrame(json.loads(res_example['TABLEDATA']))
+                        if not example_table_df.empty:
+                            h5_client.append_table(example_table_df,'example_table_df')
 
-            if not fields_df.empty:
-                h5_client.append_table(fields_df_enum,'fields_df')
-            if not enum_df.empty:
-                h5_client.append_table(enum_df,'enum_df')
+                if not table_info_df.empty:
+                    table_info_df = table_info_df.astype('str')
+                    h5_client.append_table(table_info_df,'table_info_df')
+
+                if not fields_df.empty:
+                    h5_client.append_table(fields_df_enum,'fields_df')
+
+                if not enum_df.empty:
+                    h5_client.append_table(enum_df,'enum_df')
+            else:
+                with open('out_put.txt', 'a') as f:
+                    f.write(f'{h5_group_path_rela}\n')
+
+        if method == 'xls':
+
+            df_data_save = fields_df
+            all_df_lst.append(df_data_save)
+
+
     else:
         print(table_id,obj_id,'''该表出问题''')
 
+
+global all_df
+all_df_lst  = []
 
 tree_url = 'https://datadict.finchina.com/api/DataStru/Tree?IsDeep=true'
 
@@ -198,6 +217,17 @@ initial_file_path(all_dataset_name['CHILDREN'][0],
                     next_level_key = 'CHILDREN',
                     path_key = 'MODELNAME')
 
+
+file_path = 'target_sheet_.xlsx'
+f = all_df_lst
+result = pd.concat(f, axis=0,ignore_index=True)  # 将两个文件concat，也就是合并
+if not os.path.exists(file_path):
+    result.to_excel(file_path, index=False,encoding ='gbk',)
+# else:
+#     with pd.ExcelWriter(file_path, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:
+#         df1 = pd.read_excel(file_path) # 由于没有找到好的方法，所以我们读出之前文件的内容
+
+#         result.to_excel(writer,index=False) # 保存 注意：index_label必须要和上面的index_col相同，不然下次读文件的时候会出index_col不存在的错误
 # table_info = {'MODEL_ID':207,'OBJ_ID':203,}
 
 # catch_caihui_main(table_info,req_headers,'h5_group_path_rela')
