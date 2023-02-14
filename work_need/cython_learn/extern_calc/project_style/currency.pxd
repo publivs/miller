@@ -1,5 +1,5 @@
 #cython:language_level=3
-
+#
 cdef extern from "currency.cpp":
     pass
 

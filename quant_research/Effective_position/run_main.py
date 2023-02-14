@@ -1,10 +1,11 @@
 from Approximation import (Approximation, Mask_dir_peak_valley,
-                                          Except_dir, Mask_status_peak_valley,
-                                          Relative_values)
+                            Except_dir, Mask_status_peak_valley,
+                            Relative_values,Segment_stats)
 
 from performance import Strategy_performance
 from collections import (defaultdict, namedtuple)
 from typing import (List, Tuple, Dict, Union, Callable, Any)
+
 
 import datetime as dt
 import empyrical as ep
@@ -105,8 +106,10 @@ def get_clf_wave(price: pd.DataFrame,
     return perpare_data.fit_transform(price)
 
 quote_hs_300 = ak.stock_zh_index_daily('sh000300')
+
 quote_hs_300['date'] = pd.to_datetime(quote_hs_300['date'])
 quote_hs_300.set_index('date',inplace=True)
+quote_hs_300 = quote_hs_300.loc[(quote_hs_300.index<='20211022')&(quote_hs_300.index>='20050408')]
 
 begin, end = '2020-02-01','2020-07-20'
 
@@ -135,7 +138,7 @@ line = flag_df2.plot(y='方式2划分上下行', secondary_y=True, figsize=(
 flag_df2.plot(y='close', ax=line, color='r');
 
 
-# 方式3:划分上下行 -- 最标准的算法
+# 方式3:划分上下行 -- 最标准的算法,带修正
 flag_frame3: pd.DataFrame = get_clf_wave(quote_hs_300,2,'c',True)
 flag_df3 = flag_frame3.loc[begin:end,['close','dir']]
 flag_df3 = flag_df3.rename(columns={'dir':'方式3划分上下行'})
@@ -147,7 +150,8 @@ flag_df3.plot(y='close', ax=line, color='r');
 
 
 status_frame: pd.DataFrame = get_clf_wave(quote_hs_300, 2, 'c', True)
-dir_frame: pd.DataFrame = get_clf_wave(quote_hs_300, 2, 'c', False)
+dir_frame: pd.DataFrame = get_clf_wave(quote_hs_300, 2, 'c', True)
+
 fig, axes = plt.subplots(2,figsize=(18,12))
 # 画图
 plot_pivots(dir_frame.iloc[330:450],
@@ -155,7 +159,184 @@ plot_pivots(dir_frame.iloc[330:450],
             show_hl=True,
             title='沪深300指数波段划分结果展示(方法3,Rate=2)',ax=axes[0])
 
+#
 plot_pivots(status_frame.iloc[330:450],
             show_dir=['status'],
             show_hl=True,
             title='沪深300指数波段划分结果展示(方法3-修正,Rate=2)',ax=axes[1]);
+
+
+fig, axes = plt.subplots(2,figsize=(18,12))
+# 画图
+plot_pivots(dir_frame.iloc[:50],
+            show_dir=['dir'],
+            show_hl=True,
+            title='沪深300指数波段划分结果展示(方法3,Rate=2)',ax=axes[0])
+
+plot_pivots(status_frame.iloc[:50],
+            show_dir=['status'],
+            show_hl=True,
+            title='沪深300指数波段划分结果展示(方法3-修正,Rate=2)',ax=axes[1]);
+
+
+fig, axes = plt.subplots(2,figsize=(18,12))
+# 画图
+plot_pivots(dir_frame.loc['2019-01-01':'2021-07-30'],
+            show_dir=['dir'],
+            show_hl=True,
+            title='沪深300指数波段划分结果展示（2019-01-03 至 2021-07-30）(方法3,Rate=2)',ax=axes[0])
+
+plot_pivots(status_frame.loc['2019-01-01':'2021-07-30'],
+            show_dir=['status'],
+            show_hl=True,
+            title='沪深300指数波段划分结果展示（2019-01-03 至 2021-07-30）(方法3-修正,Rate=2)',ax=axes[1]);
+
+fig, axes = plt.subplots(2,figsize=(18,12))
+# 画图
+plot_pivots(dir_frame.loc['2021-05-01':'2021-09-15'],
+            show_dir=['dir'],
+            show_hl=True,
+            title='当前点位与它的前两个端点(方法3,Rate=2)',ax=axes[0])
+
+plot_pivots(status_frame.loc['2021-05-01':'2021-09-15'],
+            show_dir=['status'],
+            show_hl=True,
+            title='当前点位与它的前两个端点(方法3-修正,Rate=2)',ax=axes[1]);
+
+'''
+上下行划分分析
+'''
+fig, axes = plt.subplots(2,figsize=(18,12))
+
+plot_pivots(status_frame,
+            show_dir=False,
+            show_hl=False,
+            title='沪深300指数波段划分结果展示(方法3-修正,Rate=2)',ax=axes[0])
+
+plot_pivots(dir_frame,
+            show_dir=False,
+            show_hl=False,
+            title='沪深300指数波段划分结果展示(方法3,Rate=2)',ax=axes[1])
+
+
+'''
+波段的划分
+'''
+stats_summary = Segment_stats(status_frame,'status')
+
+print('未去极值波段划分情况')
+stats_summary.stats_summary()
+stats_summary.ttest_segment()
+
+
+print('去极值波段划分情况')
+stats_summary.stats_summary(True)
+
+stats_summary.ttest_segment(True)
+
+fig,axes = plt.subplots(1,2,figsize=(18,6))
+
+stats_summary.plot_segment_ret_hist(title='未去极值',ax=axes[0])
+stats_summary.plot_segment_ret_hist(winsorize=True,title='去极值',ax=axes[1]);
+
+
+# 未修正的波段划分情况
+
+stats_summary = Segment_stats(dir_frame,'dir')
+
+print('未去极值波段划分情况')
+stats_summary.stats_summary()
+stats_summary.ttest_segment()
+
+
+print('去极值波段划分情况')
+stats_summary.stats_summary(True)
+
+stats_summary.ttest_segment(True)
+
+fig,axes = plt.subplots(1,2,figsize=(18,6))
+
+stats_summary.plot_segment_ret_hist(title='未去极值',ax=axes[0])
+
+stats_summary.plot_segment_ret_hist(winsorize=True,title='去极值',ax=axes[1]);
+
+'''
+计算相对效率
+'''
+rv = Relative_values('dir')
+rv_df:pd.DataFrame = rv.fit_transform(dir_frame)
+
+test_rv_df:pd.DataFrame = rv_df[['close','relative_time','relative_price']].copy()
+
+for i in range(1,25):
+    test_rv_df[i] = test_rv_df['close'].pct_change(i).shift(-i)
+
+drop_tmp = test_rv_df.dropna(subset=['relative_price'])
+drop_tmp[['close', 'relative_price', 'relative_time']].plot(figsize=(18, 12),
+                                                            subplots=True);
+
+test_rv_df.loc['2021-09-15',['close','relative_time','relative_price']] # 检验,感觉似乎哪里出了问题先不管
+
+
+'''
+应用部分
+'''
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics.pairwise import pairwise_distances_argmin
+
+X = drop_tmp[['relative_price','relative_time']].values
+
+n_clusters = 3
+
+k_means = KMeans(init='k-means++', n_clusters=n_clusters, n_init=10)
+k_means.fit(X)
+
+k_means_cluster_centers = k_means.cluster_centers_  # 获取聚类核心点
+
+k_means_labels = pairwise_distances_argmin(X, k_means_cluster_centers)  # 计算一个点和一组点之间的最小距离,默认欧式距离
+
+k_mean_cluster_frame:pd.DataFrame = drop_tmp.copy()
+
+k_mean_cluster_frame['label'] = k_means_labels
+
+from apply_code import *
+
+plot_simple_cluster(k_mean_cluster_frame,k_means_cluster_centers,
+                x='relative_price',y='relative_time',hue='label');
+
+mel_df = pd.melt(k_mean_cluster_frame,id_vars=['label'],value_vars=list(range(1,25)),var_name=['day'])
+slice_df = mel_df.query('label==0').dropna() 
+slice_df['day'] = slice_df['day'].astype(int)
+fig,ax = plt.subplots(figsize=(14,9))
+sns.kdeplot(data=slice_df, x='day',y='value',cbar=True,cmap="coolwarm");
+
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegression
+
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+import joblib # 用于模型导出
+
+train_df = test_rv_df.loc[:'2018-01-01'].dropna()
+
+test_df = test_rv_df.loc['2018-01-01':]
+
+x_test = test_df[['relative_time','relative_price']]
+
+tscv = TimeSeriesSplit(n_splits=5,max_train_size=180)
+
+nb = GaussianNB()
+
+lr = LogisticRegression()
+
+df = pd.DataFrame()
+next_ret = test_rv_df['close'].pct_change().shift(-1)
+
+df['GaussianNB'] = next_ret.loc[test_df.index] * nb.predict(x_test)
+df['LogisticRegression'] = next_ret.loc[test_df.index] * lr.predict(x_test)
+ep.cum_returns(df).plot(figsize=(18,6))
+
+ep.cum_returns(next_ret.loc[x_test.index]).plot(color='darkgray',label='HS300')
+plt.legend();

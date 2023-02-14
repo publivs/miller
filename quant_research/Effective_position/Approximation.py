@@ -18,6 +18,9 @@ import talib
 from sklearn.base import (BaseEstimator, TransformerMixin)
 from sklearn.pipeline import Pipeline
 
+import scipy.stats as st
+from IPython.display import display
+
 ############################# 兴业研报部分 #############################
 
 
@@ -227,8 +230,6 @@ class Except_dir(BaseEstimator, TransformerMixin):
 
     def transform(self, flag_df: pd.DataFrame, y=None) -> pd.DataFrame:
 
-        flag_col = self.flag_col
-
         def _except_1(row: pd.Series) -> int:
             '''当t-1为1时'''
             if (row[flag_col] == 1) and (row['close'] <= row['VALLEY_CLONE']):
@@ -261,6 +262,8 @@ class Except_dir(BaseEstimator, TransformerMixin):
             else:
                 return -1
 
+        flag_col = self.flag_col
+
         pervious_except = 1  # 初始值
 
         df = flag_df.copy()  # 备份
@@ -270,7 +273,7 @@ class Except_dir(BaseEstimator, TransformerMixin):
         df[['PEAK_CLONE',
             'VALLEY_CLONE']] = df[['PEAK', 'VALLEY']].fillna(method='ffill')
 
-        df['excet_g'] = (df[flag_col] != df[flag_col].shift(1)).cumsum()
+        df['excet_g'] = (df[flag_col] != df[flag_col].shift(1)).cumsum() # 这个地方在干嘛
 
         dropna_df = df.dropna(subset=[flag_col])
 
@@ -517,10 +520,8 @@ class Relative_values(BaseEstimator, TransformerMixin):
 
         fillna_slice[col] = fillna_slice[col].fillna(method='ffill')
 
-        fillna_slice['relative_time'] = fillna_slice.apply(calc_relative_time,
-                                                           axis=1)
-        fillna_slice['relative_price'] = fillna_slice.apply(
-            calc_relative_price, axis=1)
+        fillna_slice['relative_time'] = fillna_slice.apply(calc_relative_time,axis=1)
+        fillna_slice['relative_price'] = fillna_slice.apply(calc_relative_price, axis=1)
 
         # 还原
         fillna_slice[col] = flag_df[col]
@@ -808,3 +809,132 @@ class Tren_Score(object):
         cond = [True if i in point else False for i in range(size)]
 
         return cond
+
+class Segment_stats():
+    '''
+    分析上下行划分的统计数据
+    '''
+    def __init__(self,
+                 frame: pd.DataFrame,
+                 flag_col: str,
+                 drop: bool = True) -> None:
+
+        self.data = frame
+        self.flag_col = flag_col
+        self.drop = drop
+        self._COL_NAME_MAP = {-1: '下跌波段', 1: '上涨波段'}
+        self._prepare()
+
+    def winsorize_std(self) -> pd.DataFrame:
+        ''''标准差去极值'''
+
+        ret = self.stats_frame.groupby('g')['log_ret'].sum()
+        up = ret.mean() + ret.std() * 2
+        low =  ret.mean() - ret.std() * 2
+
+        group_id = ret[(ret <= up) & (ret >= low)].index.tolist()
+        return self.stats_frame.query('g == @group_id')
+
+    def _prepare(self) -> None:
+        '''预处理'''
+        stats_df = self.data[['close', self.flag_col]].copy()
+
+        stats_df['log_ret'] = np.log(stats_df['close'] /
+                                     stats_df['close'].shift(1))
+
+        if self.drop:
+            stats_df = stats_df.dropna(subset=[self.flag_col])
+
+        stats_df['g'] = (stats_df[self.flag_col] !=
+                         stats_df[self.flag_col].shift(1)).cumsum()
+
+        self.stats_frame = stats_df
+
+    def stats_summary(self, winsorize: bool = False) -> pd.DataFrame:
+        '''简易统计报告'''
+
+        if winsorize:
+
+            stats_frame = self.winsorize_std()
+
+        else:
+
+            stats_frame = self.stats_frame
+
+        SUMMARY_STATS = [
+            ('均值', lambda x: x.mean()), ('标准差', lambda x: x.std()),
+            ('最大值', lambda x: x.max()), ('最小值', lambda x: x.min()),
+            ('样本数量', lambda x: len(x))
+        ]
+
+        group_stats = stats_frame.groupby([self.flag_col,
+                                           'g'])['log_ret'].sum()
+
+        stats = group_stats.groupby(level=self.flag_col).agg(SUMMARY_STATS)
+
+        stats.index = stats.index.map(self._COL_NAME_MAP)
+
+        return display(
+            stats.style.format('{:.2%}', subset=['均值', '标准差', '最大值', '最小值']))
+
+    def ttest_segment(self, winsorize: bool = False) -> pd.DataFrame:
+        '''波段的T检验'''
+
+        if winsorize:
+
+            stats_frame = self.winsorize_std()
+
+        else:
+
+            stats_frame = self.stats_frame
+
+        t_test = stats_frame.groupby(
+            self.flag_col)['log_ret'].apply(lambda x: pd.Series(
+                st.ttest_1samp(x.dropna(), 0), index=['statistic', 'pvalue']))
+
+        t_test = t_test.unstack()
+        t_test.index = t_test.index.map(self._COL_NAME_MAP)
+
+        return display(
+            t_test.style.format({
+                'statistic': '{:.2f}',
+                'pvalue': '{:.4f}'
+            }))
+
+    def plot_segment_ret_hist(self, winsorize: bool = False, **kw):
+
+        if winsorize:
+
+            stats_frame = self.winsorize_std()
+
+        else:
+
+            stats_frame = self.stats_frame
+
+        group_ret = stats_frame.groupby([self.flag_col, 'g'])['log_ret'].sum()
+
+        ret_min = group_ret.min()
+        ret_max = group_ret.max()
+
+        labels = ['<=5%', '6%-10%', '11%-15%', '16%-20%', '>20%']
+        bins = [ret_min, 0.05, 0.1, 0.15, 0.2, ret_max]
+
+        if ret_max <= 0.2:
+            bins = bins[:-1]
+            labels = labels[:-1]
+            labels[-1] = '16%-{:.0%}'.format(ret_max)
+
+        if ret_min >= 0.05:
+            bins = bins[1:]
+            labels = labels[1:]
+            labels[0] = '6%-{:.0%}'.format(ret_min)
+
+        ser: pd.Series = pd.cut(
+            group_ret,
+            bins=bins,
+            labels=labels)
+
+        df = ser.groupby(self.flag_col).value_counts().unstack(level=0)
+        df.rename(columns=self._COL_NAME_MAP, inplace=True)
+
+        return df.plot.bar(**kw)
