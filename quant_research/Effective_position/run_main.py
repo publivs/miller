@@ -31,7 +31,6 @@ import akshare as ak
 # https://www.joinquant.com/view/community/detail/f5d05b8233169adbbf44fb7522b2bf53?type=1&page=1
 
 def plot_pivots(peak_valley_df: pd.DataFrame,
-
                 show_dir: Union[str,List,Tuple]='dir',
                 show_hl: bool = True,
                 show_point:bool = True,
