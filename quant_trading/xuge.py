@@ -6,7 +6,9 @@ import numpy as np
 import backtrader as bt
 import time
 import json
+import datetime
 
+import backtrader.indicators as btind
 '''
 url
 获取的数据格式:OHLC,change_vol,pct_change
@@ -61,18 +63,8 @@ def get_df_data(req_headers,timestamp):
     # df_i['tick_at'] = df_i.tick_at.apply(lambda x:pd.Timestamp(x,unit = 's'))
     return df_i
 
-def strategy_main():
-    cerebro = bt.Cerebro()
-    mod_path = os.path.dirname(os.path.abspath(sys.argv[0]))
-    data_path = mod_path.join('./xauusd_4h_from_20180731.csv')
-    df = pd.read_csv(data_path,parse_dates=['tick_at'])
-    df = df.set_index('tick_at')
-    df = df[['open_px','high_px', 'low_px', 'close_px',]]
-    data = bt.feeds.PandasDirectData(df)
-    cerebro.adddata(data)
-    cerebro.broker.setcash(10000)
 
-class Mean_revert(bt.strategy):
+class Mean_revert(bt.Strategy):
         params = (
                 ('roll_num',55),
                 ('first_price_input',95),
@@ -82,8 +74,7 @@ class Mean_revert(bt.strategy):
                 )
 
         def __init__(self) -> None:
-            self.ma_55 = bt.indicator.MovingAverageSimple(self.data.close,
-                                                        period=self.params.roll_num)
+            self.ma_55 = btind.SMA(self.data.close,period=self.params.roll_num)
             self.sell_size = 0
             self.hold_day = 0
             self.first_price = 0
@@ -103,7 +94,7 @@ class Mean_revert(bt.strategy):
                     self.log(f'卖出:\n价格：{order.executed.price},\
                     成本: {order.executed.value},\
                     手续费{order.executed.comm}')
-                self.bar_executed = len(self) 
+                self.bar_executed = len(self)
 
             # 如果指令取消/交易失败, 报告结果
             elif order.status in [order.Canceled, order.Margin, order.Rejected]:
@@ -121,28 +112,76 @@ class Mean_revert(bt.strategy):
 
         def next(self):
             if not self.position : # 无持仓的情况下
-                if self.data.close[0] > self.ma_55 + self.params.first_price_input:
+                if self.data.close[0] > self.ma_55[0] + self.params.first_price_input:
                     self.order = self.sell(size = 0.1)
                     self.first_price = self.data.close[0] # 记录一下进场价格
-                self.hold_day += 1
+                    self.hold_day += 1
+
 
             else: # 有持仓的情况下
                 # 加仓逻辑1
-                if self.data.close[0]>(self.first_price + 40)>(self.ma_55+100):
+                if self.data.close[0]>(self.first_price + 40)>(self.ma_55[0]+100):
                     self.order = self.sell(size = 0.1)
                     self.hold_day += 1
                     self.add_position = 1
                 # 加仓逻辑2
                 elif (
-                    (self.data.close[0]> (self.first_price + 100)) and (self.data.close[0]> (self.ma_55 + 100))
+                    (self.data.close[0]> (self.first_price + 100)) and (self.data.close[0]> (self.ma_55[0] + 100))
                     ):
                     self.order = self.sell(size = 0.2)
                     self.hold_day += 1
                     self.add_position = 1
                 # 清仓逻辑
-                elif self.data.close[0]< self.ma_55 -40:
+                if self.add_position != 0:
+                    if self.data.close[0]< self.ma_55[0] -40:
+                        self.close()
+
+                elif self.add_position == 0:
+                    # 单笔盈利超过
                     self.close()
+
                 elif self.hold_day>120:
-                    self.close()
+                        self.close()
 
 
+def strategy_main():
+    cerebro = bt.Cerebro()
+    mod_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+    data_path = mod_path+'\\xauusd_4h_from_20180731.csv'
+
+    df = pd.read_csv(data_path,parse_dates=['tick_at'])
+
+    params = dict(
+                fromdate = datetime.datetime(2010,1,4),
+                todate = datetime.datetime(2020,3,20),
+                timeframe = bt.TimeFrame.Days,
+                compression = 1,
+                #dtformat=('%Y-%m-%d %H:%M:%S'),
+                # tmformat=('%H:%M:%S'),
+                datetime=0,
+                high=2,
+                low=3,
+                open=1,
+                close=4,
+                volume=5,
+                openinterest=6)
+
+    df = pd.read_csv(data_path,encoding='gbk')
+    df = df[['tick_at', 'open_px', 'high_px', 'low_px', 'close_px', 'turnover_volume', 'turnover_value',]]
+    df.columns = ['datetime','open','high','low','close','volume','openinterest']
+    df = df.sort_values("datetime")
+    df.index=pd.to_datetime(df['datetime'])
+    df=df[['open','high','low','close','volume','openinterest']]
+    feed =  bt.feeds.PandasDirectData(dataname=df,**params)
+    cerebro.adddata(feed)
+    cerebro.addstrategy(Mean_revert)
+    cerebro.broker.setcommission(
+                                margin=1, # 必须为1 automargin=1000,# 不同货币的保证金可以使用公式计算得出   
+                                mult=100.0, # 100是杠杆的倍数，1000固定 
+                                ) # 设
+    cerebro.broker.setcash(10000)
+    cerebro.run()
+
+
+
+strategy_main()
