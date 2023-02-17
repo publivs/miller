@@ -13,6 +13,7 @@ import random
 
 # C:\Program Files\Tesseract-OCR
 
+
 chrome_options = Options()
 chrome_options.add_argument('window-size=1920x3000') #指定浏览器分辨率
 chrome_options.add_argument('--disable-gpu') #谷歌文档提到需要加上这个属性来规避bug
@@ -21,7 +22,6 @@ chrome_options.add_argument('--ignore-certificate-errors') #忽略一些莫名�
 chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])  # 开启开发者模式
 chrome_options.add_argument('--disable-blink-features=AutomationControlled')  # 谷歌88版以上防止被检测
 # chrome_options.add_argument('blink-settings=imagesEnabled=false') #不加载图片, 提升速度
-
 chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36')
 
 # chrome_options.add_argument('--headless') # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败,可视化带ui的正常使用,方便调试
@@ -99,18 +99,54 @@ def connect_url(target_url,req_headers):
             print("链接,出异常了！")
     return res_
 
+def remove_noise(img,k=4):
+  img2 = img.copy()
+#   img处理数据，k过滤条件
+  w,h = img2.shape
+  def get_neighbors(img3,r,c):
+    count = 0
+    for i in [r-1,r,r+1]:
+      for j in [c-1,c,c+1]:
+        if img3[i,j] > 10:#纯白色
+          count+=1
+    return count
+#   两层for循环判断所有的点
+  for x in range(w):
+    for y in range(h):
+      if x == 0 or y == 0 or x == w -1 or y == h -1:
+        img2[x,y] = 255
+      else:
+        n = get_neighbors(img2,x,y)#获取邻居数量，纯白色的邻居
+        if n > k:
+          img2[x,y] = 255
+  return img2
+
 # Grayscale image
 def recognize_captcha(file_path):
     img = Image.open(file_path).convert('L')
-
-    ret,img = cv.threshold(np.array(img), 125, 255, cv.THRESH_BINARY)
-    # img = cv.morphologyEx(np.array(img),cv.MORPH_CLOSE,np.ones(shape=(6,6)))
-
+    ret,img = cv.threshold(np.array(img), 125, 255, cv.THRESH_BINARY|cv.THRESH_OTSU)
+    # img = remove_noise(img,k=4)
     img = Image.fromarray(img.astype(np.uint8))
     res = pytesseract.image_to_string(img)
     res = res.replace(' ','').replace('\n','')
     print(res)
     return res
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def check_pic_res():
     from bs4 import BeautifulSoup
@@ -154,9 +190,6 @@ driver.get('https://poll.cnfic.com.cn/vote2022/index.html')  # 此处不要再�
 
 
 driver.refresh()
-
-
-
 
 pic_res = check_pic_res()
 pic_res.replace('~','')

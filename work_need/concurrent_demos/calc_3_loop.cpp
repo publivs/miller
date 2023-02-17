@@ -5,6 +5,8 @@
 static long counts = 20;
 double step;
 
+
+
 #define THREAD_NUMS 5
 int main(int argc, const char* argv[]){
     std::vector<double> a ;
@@ -18,7 +20,7 @@ int main(int argc, const char* argv[]){
     double start = omp_get_wtime();
     int N = a.size();
 
-    #pragma omp parallel for schedule(static,3)
+    #pragma omp parallel for schedule(static,3) shared(a)
     for(size_t i=0;i<N;i++)
     {
         a[i] = a[i]+b[i];

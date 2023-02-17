@@ -1,5 +1,11 @@
 C++的OpenMP
 
+基本使用:
+
+    openMP没办法调度Debug
+
+    g++ -fopenmp "输入的文件路径" -o '输出的文件名'.exe
+
 模块基本特性:
 
 1、共享内存，基于线程的并行
@@ -39,7 +45,7 @@ d) JOIN：当组线程完成并行区域构造中的语句时，它们将同步�
 IF子句:
     OpenMP中只有 if `<expression> == True会触发并创建子线程`
 
-FOR语法[Loop Construct的构造]
+FOR语法[循环结构的构造\]
 
 1、schedule static子句
 
@@ -62,7 +68,7 @@ pragma omp for schedule(staic,[,chunk]) :将chunk的迭代块静态分配给每�
 4、后缀 nowwait子句
 
     举例:
-    
+
     #**pragma** omp for schedule(guided, chunk) nowait
 
 特性:
@@ -121,17 +127,17 @@ single块里面永远只运行一个线程，强I/O操作的时候可能会用�
 同步结构:
 
     1、Master(主线程指令)
-    
+
     Master指令指定的区域只由主线程执行，团队中其他线程都跳过该区域的代码
-    
+
     2、Critical(指定代码区域)
-    
+
     Critical线程指令指定的代码区域，一次只能有一个线程执行，当另一个线程到达该区域时，他将阻塞，直到该线程执行完毕退出该区域后执行
-    
+
     举例
 
 ```
-#pragma omp parallel sections
+`#pragma omp parallel sections
 	{
 	#pragma omp section
 		{
@@ -214,12 +220,8 @@ ordered指令只能用在for或parallel for中
 说明：
 
 - 数据作用域定义了程序串行部分中的数据变量中的哪些以及如何传输到程序的并行部分，定义了哪些变量对并行部分中的所有线程可见，以及哪些变量将被私有地分配给所有线程。
-
 - 数据作用域子句可与多种指令（如parallelL、for、sections等）一起使用，以控制封闭区域变量的作用域。
-
 - OpenMP基于共享内存编程模型，所以大多数变量在默认情况下是共享的。
-
-
 
 1、Private
 
@@ -233,25 +235,24 @@ ordered指令只能用在for或parallel for中
 	{	code.....}
 ```
 
-​	每个变量i 和a都是独立的，互相不影响，并且，不影响全局的i和a,类似于python中函数的局部变量,每个线程的声明的对应变量都是对新对象的引用;
+    每个变量i 和a都是独立的，互相不影响，并且，不影响全局的i和a,类似于python中函数的局部变量,每个线程的声明的对应变量都是对新对象的引用;
 
 2、firtprivate&lastprivate
 
-​	firstprivate子句指定的变量不仅是private作用范围，同时在进入**并行区域构造前根据其原始对象的值初始化**
+    firstprivate子句指定的变量不仅是private作用范围，同时在进入**并行区域构造前根据其原始对象的值初始化**
 
-​	lastprivate子句指定的变量不仅是private作用范围，同时会将**最后一次迭代或最后一个section执行的值**复制回原来的变量
+    lastprivate子句指定的变量不仅是private作用范围，同时会将**最后一次迭代或最后一个section执行的值**复制回原来的变量
 
 3、shared
 
 - shared子句声明的变量将在所有线程之间共享，所有线程都可以对同一个内存位置进行读写操作
-
 - 程序员需确保多个线程正确地访问共享变量（通过critical atomic等指令）
   示例代码如下
 
   ```
   int i = 0;
   float a = 512.3;
-  
+
   #pragma omp parallel shared(i,a)
   	{
   		i = i + 1;
@@ -259,10 +260,8 @@ ordered指令只能用在for或parallel for中
   	}
   	printf("out of parallel i = %d", i);
   	}
-  
-  ```
 
-  
+  ```
 
   存在对同一个变量进行高速反复操作的时候,需要注意注意线程的执行情况。
 
@@ -271,28 +270,21 @@ ordered指令只能用在for或parallel for中
 - default子句允许用户为任何并行区域范围内的**所有变量指定默认的private、shared或none作用范围。**
 - 同时可使用private、shared、firstprivate、lastprivate和reduction子句免除特定变量的缺省值
 
-
-
 5、规约子句:reduction
 
 - reduction子句对其列表中出现的变量进行规约。
-
 - 首先在并行区域为每个线程创建该变量的私有副本。在并行区域结束时，根据指定的运算将所以线程的私有副本执行规约操作后，赋值给原来的变量中。
-
 - reduction列表中的变量必须命名为**标量变量**，不能是数组或结构类型变量，还必须在并行区域中声明为共享
 
-  注意，一定得是标量，不能是数组
+  **注意，一定得是标量，不能是数组(这点非常非常坑)**
 
 数据类型规定的太死，不是特别好用，批量计算都是数组进数组出
-
-
 
 6、ThreadPrivate
 
 这是一个高级的用法。
 
 - threadprivate指令用于将全局变量的副本与线程绑定，即使跨越多个并行区域这种关系也不会改变。
-
 - 该指令必须出现在所列变量声明之后。然后每个线程都会获得自己的变量副本，因此一个线程写入的数据对其他线程不可见。
 - 因为是确认了线程中的变量、和全局变量的，所以必须关掉动态线程机制。
 
@@ -322,4 +314,3 @@ void TestThreadPrivate()
 }
 
 ```
-

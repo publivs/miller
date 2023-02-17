@@ -21,7 +21,11 @@ lamd = sy.symbols('lambda')
 mu = sy.symbols('mu')
 theta = sy.symbols('theta')
 sigma = sy.symbols('sigma')
+
+# 极坐标转换
 r = sy.symbols('r', nonnegative=True)
+
+
 
 def calc_C(n,m):
     a = sy.factorial(n)
@@ -654,11 +658,158 @@ D(X+Y) = D(X) + D(Y) + 2E((X - E(X))(Y-E(Y)))
 #
 
 
-
-
 # eg.8
 # X ~ N(22.4,0.03^2) Y~N(22.5,0.04 ^2)
 # P{X < Y}
 # Z = X - Y
 # Z ~ N(-0.1,)
 # P{}
+
+
+# 随机变量的数字特征
+
+Y = sy.symbols('Y')
+
+# eg.10
+f_Y = 1/theta *sy.exp(-y/theta)
+
+# m为单位盈利，n为单位loss,x则是销售
+Q_x_l = m*y - n*(x- Y)
+Q_x = m*x
+
+E_Q  = sy.integrate(Q_x_l*f_Y,(y,0,x)) + sy.integrate(Q_x * f_Y,(y,x,sy.oo))
+
+E_Q = (m+n)*theta - (m+n)*theta * sy.exp(-x/theta)- n*x
+
+
+
+# 例子11
+'''
+因为X1,X2,X3相互独立，且在(7,11)上服从均匀分布
+'''
+
+u = sy.symbols('u')
+
+F_u = (x-7)/(11-7)
+
+# Y = max{x1,x2,x3}的分布函数
+
+F_y = F_u ** 3
+
+# 不妨令G 为甲的赚钱数字
+# 赚钱的数学期望
+G_x = 10- x
+E_G_X = (F_y) * G_x
+E_G_X.diff(x)
+
+# 例子12
+# 每站进行观察一次
+
+# 引入随机变量,设在第i站有人下车
+# 有两种可能性
+P_no = 1-(1/10) # 每个旅客在各个车站下车是等可能的并且相互独立
+X_i_0 = P_no**20
+X_i_1 = 1- X_i_0
+E_x_i = 1 * X_i_1
+E_x  = 10 * E_x_i # 独立同分布，期望相同
+
+# 例13
+# 利用独立随机变量的性质
+r = sy.symbols('r')
+g_i = i*2*i # [0,1]
+h_r = r*r**2/9 # [0,3]
+'''
+E(V) = E(IR) = E(I)*E(R)
+'''
+E_V = sy.integrate(g_i,(i,0,1)) * sy.integrate(h_r,(r,0,3))
+
+# 方差
+E_X_pi = sy.summation(pi_distributes()*k,(k,0,sy.oo))
+E_X2_pi = sy.summation(pi_distributes()*k*k,(k,0,sy.oo))
+
+#
+f_x = 1/b-A
+
+X_ = norm(22.4,0.03)
+Y_ = norm(22.5,0.04)
+
+
+# 二维正态分布随机变量(X,Y)的概率密度中的参数p就是X/Y的相关系数，因此二维正态分布完全可以
+# 由X,Y各自的数学期望和方差以及他们的相关系数决定
+
+# ------------------- 第四章习题 -------------------- #
+
+# 2
+P_ = 0.1
+n = 10
+times = 4
+# 每个残次品的概率相互独立
+
+from scipy.stats import binom,bernoulli
+rv = binom(n,P_)
+P_1 =1 -  rv.cdf(1)
+
+rv_2 = bernoulli(times,P_1)
+ex = rv_2.expect(lambda k:k)
+
+# 3
+P_ = 1/4
+'''
+x1,x2,x3对应的分布律相同
+'''
+
+
+
+
+
+
+# 8
+values_mat = [[0.2,0.1,0.0],[0.1,0.0,0.3],[0.1,0.1,0.1]]
+# values_mat = np.array(values_mat)
+index_ = [-1,0,1]
+df = pd.DataFrame(values_mat,index = index_,columns = (range(1,4)))
+
+def ex_func(x,y,func):
+    return func(x,y)
+
+ex= 0
+for y_ in df.index:
+    for x_ in df.columns:
+        # print(y_)
+        ex += df.loc[y_,x_] * ex_func(x_,y_,lambda x,y:(x-y)**2)
+
+# 11
+f_x = 1/4*sy.exp(-x/4)
+P_ = sy.integrate(f_x,(x,0,1))
+
+P_*100 - (300 - 100)*(1-P_)
+
+# 12
+f_x = 1/b-a
+A  = 1/4*sy.pi*f_x**2
+A_ = sy.integrate(A,(x,a,b))
+
+# X~N(0,9)
+# Y = 5X**2
+'''
+利用方差的计算换算
+'''
+# E(X^2) = D(X)+E(X)**2 ,对右边整体乘以5即可
+# 固原式为45
+
+# 13 利用随机变脸独立的性质
+f1_x = 2*sy.exp(-2*x)
+f2_x = 4*sy.exp(-4*x)
+
+# 不妨令
+f_theta = theta*sy.exp(-x/theta)
+
+# 14
+times = sy.symbols('n')
+P_= 1/times
+
+# 显然,不同盒子放置的是相互独立的
+E_X = (1/n)* n
+
+# 15 锁为1，钥匙为n
+

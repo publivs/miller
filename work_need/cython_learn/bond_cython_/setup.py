@@ -11,7 +11,8 @@ os.environ["CC"] = "gcc-8.1.0"
 
 ext_mod = cythonize(["time_libs.pyx"],
                     language='c++',
-                    language_level = '3')
+                    language_level = '3'
+                    )
 
 setup(
     name = 'time_lib',
