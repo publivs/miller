@@ -281,3 +281,12 @@ v1 = x1.var()
 v2 = x2.var()
 d1 = COV/v1
 d2 = COV/v2
+
+# aic_bic
+def calc_aic(T,k,sigma_squared):
+    res = T*np.log(sigma_squared) + 2*k
+    return res
+
+def calc_bic(T,k,sigma_squared):
+    res = T*np.log(sigma_squared) + k*np.log(T)
+    return res
