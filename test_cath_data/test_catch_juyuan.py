@@ -92,72 +92,62 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
     table_change_desc_df,\
     table_modify_date_df,example_info_df,Q_A_info_df = get_all_table_info(table_id,req_headers,base_url)
 
-    # 根文件夹
+    method = 'xls'
 
-    # ------------------------------------------ 下面的部分用递归改变 ------------------------------------------ #
-    # 创建文件夹
-    # data_set_path = i_dataset_name['groupName']
-    # data_set_path_rela = all_data_set_path+'\\'+data_set_path
-    # if not os.path.exists(data_set_path_rela):
-    #     os.mkdir(data_set_path_rela)
+    if method == 'xls':
+        df_data_save = column_info_df
+        df_data_save['tableCnName'] = table_info_df['tableChiName'].values[0]
+        df_data_save['tableName'] = table_info_df['tableName'].values[0]
+        all_df_lst.append(df_data_save)
+        # 写入文件
+        with open('out_put.txt', 'a') as f:
+                    f.write(f'{h5_group_path_rela}\n')
+    
+    elif method == 'h5':
+        h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
 
-    # # 创建一个文件夹
-    # group_path = i_group_info['groupName']
-    # group_path_rela = all_data_set_path+'\\'+data_set_path+'\\'+group_path
-    # if not os.path.exists(group_path_rela):
-    #     os.mkdir(group_path_rela)
+        if not table_info_df.empty:
+            table_info_df = table_info_df.astype('str')
+            h5_client.append_table(table_info_df,'table_info_df')
 
+        if not column_info_df.empty:
+            h5_client.append_table(column_info_df,'column_info_df')
 
+        if not slave_column_info_df.empty:
+            h5_client.append_table(slave_column_info_df,'slave_column_info_df')
 
-    # # 聚源一张表就一个HDFS对象
-    # table_name = i_table_info['tableName']
-    # table_cn_name = i_table_info['groupName']
-    # h5_group_path_rela = all_data_set_path+'\\'+data_set_path+'\\'+group_path+'\\'+table_name+'_'+table_cn_name
+        if not table_index_unique_df.empty:
+            table_index_unique_df = table_index_unique_df.astype('str')
+            h5_client.append_table(table_index_unique_df,'table_index_unique_df')
 
-    h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
+        if not table_change_desc_df.empty:
+            h5_client.append_table(table_change_desc_df,'table_change_desc_df')
 
-    if not table_info_df.empty:
-        table_info_df = table_info_df.astype('str')
-        h5_client.append_table(table_info_df,'table_info_df')
+        if not table_modify_date_df.empty:
+            h5_client.append_table(table_modify_date_df,'table_modify_date_df')
 
-    if not column_info_df.empty:
-        h5_client.append_table(column_info_df,'column_info_df')
+        if not example_info_df.empty:
+            h5_client.append_table(example_info_df,'example_info_df')
 
-    if not slave_column_info_df.empty:
-        h5_client.append_table(slave_column_info_df,'slave_column_info_df')
+        # ---------------------------------------------------------------------------------- #
+        def update_qa_info(table_id,table_name,qa_table_name,h5_group_path_rela,Q_A_info_df):
+            str_q = '问题:'+ Q_A_info_df.qaQuestion + '\n'
+            qa_table_name = '该问题涉及的表单:' + qa_table_name +'\n'
+            str_a = '回答:' + Q_A_info_df.qaAnswer +'\n'
+            str_time = '最后修改的时间:'+ Q_A_info_df.lastModifiedDate
+            str_qa_info = str_q+qa_table_name+str_a+str_time + ' \n \n \n'
 
-    if not table_index_unique_df.empty:
-        table_index_unique_df = table_index_unique_df.astype('str')
-        h5_client.append_table(table_index_unique_df,'table_index_unique_df')
+            # # # 写入部分 # # #
+            with open(f'''{h5_group_path_rela}_QA.txt''','a',encoding='utf-8') as f:
+                f.write(str_qa_info)
+            return str_qa_info
 
-    if not table_change_desc_df.empty:
-        h5_client.append_table(table_change_desc_df,'table_change_desc_df')
-
-    if not table_modify_date_df.empty:
-        h5_client.append_table(table_modify_date_df,'table_modify_date_df')
-
-    if not example_info_df.empty:
-        h5_client.append_table(example_info_df,'example_info_df')
-
-    # ---------------------------------------------------------------------------------- #
-    def update_qa_info(table_id,table_name,qa_table_name,h5_group_path_rela,Q_A_info_df):
-        str_q = '问题:'+ Q_A_info_df.qaQuestion + '\n'
-        qa_table_name = '该问题涉及的表单:' + qa_table_name +'\n'
-        str_a = '回答:' + Q_A_info_df.qaAnswer +'\n'
-        str_time = '最后修改的时间:'+ Q_A_info_df.lastModifiedDate
-        str_qa_info = str_q+qa_table_name+str_a+str_time + ' \n \n \n'
-
-        # # # 写入部分 # # #
-        with open(f'''{h5_group_path_rela}_QA.txt''','a',encoding='utf-8') as f:
-            f.write(str_qa_info)
-        return str_qa_info
-
-    if Q_A_info_df.__len__() != 0:
-        # Q_A_info_df = Q_A_info_df.loc[:,~Q_A_info_df.columns.str.contains('tables')]
-        for no_ in range(Q_A_info_df.__len__()):
-            em_str = ''
-            qa_table_name = [em_str + i['tableName'] + '' for i in Q_A_info_df.iloc[0]['tables']].__str__()[1:-1]
-            update_qa_info(table_id,table_name,qa_table_name,h5_group_path_rela,Q_A_info_df.iloc[no_])
+        if Q_A_info_df.__len__() != 0:
+            # Q_A_info_df = Q_A_info_df.loc[:,~Q_A_info_df.columns.str.contains('tables')]
+            for no_ in range(Q_A_info_df.__len__()):
+                em_str = ''
+                qa_table_name = [em_str + i['tableName'] + '' for i in Q_A_info_df.iloc[0]['tables']].__str__()[1:-1]
+                update_qa_info(table_id,table_name,qa_table_name,h5_group_path_rela,Q_A_info_df.iloc[no_])
 
 
 def initial_file_path(tree_nodes,
@@ -166,6 +156,7 @@ def initial_file_path(tree_nodes,
                     path_key = 'groupName',
                     table_name_key  = 'tableName',
                     table_id_key = 'id'):
+
     #
     initial_path = res_path
     next_level_key = next_level_key
@@ -196,7 +187,7 @@ def initial_file_path(tree_nodes,
             append_path  = '\\'+ tree_nodes[path_key]
             append_path = append_path.replace('/','_')
             res_path = res_path + append_path
-            print(res_path)
+            # print(res_path)
             sub_nodes = tree_nodes[next_level_key]
             if not os.path.exists(res_path):
                 os.mkdir(res_path)
@@ -212,9 +203,15 @@ def initial_file_path(tree_nodes,
             table_cn_name = tree_nodes['groupName']
             if table_cn_name is None:
                 pass
-            h5_path = f'''{res_path}\\{table_name}_{table_id}'''
+            h5_path = f'''{res_path}\\{table_name}_{table_cn_name}'''
             print(h5_path)
-            # sleep_time = time.sleep(np.random.randint(3,4))
+            sleep_time = time.sleep(np.random.randint(1,3))
+            if not os.path.exists(h5_path+'_'+'table'+'.h5'):
+        # sleep_time = time.sleep(np.random.randint(0,1))
+                try:
+                    catch_data_main(tree_nodes,req_headers,base_url,h5_path)
+                except:
+                    print(f'{table_cn_name}_{table_id}_{table_name},数据有问题...')
             return res_path
 
     last_path = '\\'+res_path.split('\\')[-1:][0]
@@ -229,7 +226,7 @@ def initial_file_path(tree_nodes,
 
 base_url = 'https://dd.gildata.com/'
 
-cookie = '''rememberMeFlag=true; sSerial=TVRBNmRIQjVlbU56YW1zd09HZHBiR1JoZEdGQU1USXo%3D; SESSION=03fed8d9-4f80-4393-850d-72f90fa4a28b'''
+cookie = '''SESSION=d520ccc1-f40d-432a-be94-679cade482cf; rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo='''
 
 # Override the default request headers:
 req_headers = {
@@ -244,51 +241,26 @@ all_tree_url = f'/api/productGroupTreeWithTables/8/802/ALL_TREE'
 
 # 获取主节点的信息
 res_all_tree = requests.get(base_url+all_tree_url,headers=req_headers)
-res_all_tree = json.loads(res_all_tree.text)
-
+res_all_tree = json.loads(res_all_tree.text) 
+# 声明空列表方便存储
+all_df_lst = []
 # 获取所有data_set的信息
 all_dataset_name = res_all_tree[0]
 # 数据集的path
 all_data_set_path = 'Juyuan_datafile'
-    # os.remove(all_data_set_path)
-if  not os.path.exists(all_data_set_path):
+# os.remove(all_data_set_path)
+if not os.path.exists(all_data_set_path):
         os.mkdir(all_data_set_path)
 
 for i in range (len(all_dataset_name['nodes']) ):
-    if i >= 11:
         initial_file_path(all_dataset_name['nodes'][i])
-# 获取该对应第0个data_set 的信息
-# for i in range(all_dataset_name.__len__()):
-#     i_dataset_name = all_dataset_name[i]
 
-# # 获取该dataset下,group_0对应表的信息
-#     for j in range(i_dataset_name['nodes'].__len__()):
-#         i_group_info  = i_dataset_name['nodes'][j]
-
-# # 获取该group下对应的table_0的信息
-#         for k in range(i_group_info['nodes'].__len__()):
-#                 i_table_info = i_group_info['nodes'][k]
-#                 no_ = i*100+j*10+k
-#                 if no_ >710:
-#                     print('*'*10+'执行到了,no_:  '+str(no_)+'*'*10)
-#                     sleep_time = np.random.randint(3,6)
-#                     table_id = i_table_info['id']
-#                     table_name = i_table_info['tableName']
-#                     table_cn_name = i_table_info['groupName']
-#                     catch_data_main(table_id,req_headers,base_url)
-#                     time.sleep(sleep_time)
-#                 else:
-#                     pass
-
-
-
-# 上次执行的位置 710
-
-# 执行的位置 550 546
-# ------------------------------------------- 拆离 ----------------------------------------- #
-
-
-
+# 使用xlsx的时候可以用下面的代码 #
+file_path = 'target_sheet_.xlsx'
+f = all_df_lst
+result = pd.concat(f, axis=0,ignore_index=True)  # 将两个文件concat，也就是合并
+if not os.path.exists(file_path):
+    result.to_excel(file_path, index=False,encoding ='gbk',)
 
 
 

@@ -72,27 +72,34 @@ class Mean_revert(bt.Strategy):
                 ('stake',0.1),
                 ('max_hold_day',120)
                 )
+        def log(self, txt, dt=None, doprint=True):
+            ''' 日志函数，用于统一输出日志格式 '''
+            if doprint:
+                dt = dt or self.datas[0].datetime.date(0)
+                print('%s, %s' % (dt.isoformat(), txt))
 
         def __init__(self) -> None:
-            self.ma_55 = btind.SMA(self.data.close,period=self.params.roll_num)
+            self.ma_55 = bt.talib.SMA(self.data.close,timeperiod=self.params.roll_num)
             self.sell_size = 0
-            self.hold_day = 0
+            self.hold_days = 0
             self.first_price = 0
             self.add_position = 0
+            self.first_day = 0
+
         def notify_order(self,order):
             if order.status in [order.Submitted, order.Accepted]:
                 return
             # 如果order为buy/sell executed,报告价格结果
-            if order.status in [order.Completed]: 
+            if order.status in [order.Completed]:
                 if order.isbuy():
                     self.log(f'买入:\n价格:{order.executed.price},\
-                    成本:{order.executed.value},\
+                    数量:{order.executed.value},\
                     手续费:{order.executed.comm}')
                     self.buyprice = order.executed.price
                     self.buycomm = order.executed.comm
                 else:
                     self.log(f'卖出:\n价格：{order.executed.price},\
-                    成本: {order.executed.value},\
+                    数量: {order.executed.value},\
                     手续费{order.executed.comm}')
                 self.bar_executed = len(self)
 
@@ -110,38 +117,52 @@ class Mean_revert(bt.Strategy):
             self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
                     (trade.pnl, trade.pnlcomm))  # pnl：盈利  pnlcomm：手续费
 
+        def check_hold_days(self):
+            if self.datetime.date(0) == self.first_day:
+                pass
+            else:
+                self.hold_days = (self.first_day - self.datetime.date(0)).days + 1
+
         def next(self):
             if not self.position : # 无持仓的情况下
-                if self.data.close[0] > self.ma_55[0] + self.params.first_price_input:
+                if self.data.close[0] > (self.ma_55[0] + self.params.first_price_input):
                     self.order = self.sell(size = 0.1)
                     self.first_price = self.data.close[0] # 记录一下进场价格
-                    self.hold_day += 1
+                    self.hold_days = 1 # 初始化持仓日期
+                    self.first_day = self.datetime.date(0) # 记录第一笔单子进场
 
 
-            else: # 有持仓的情况下
+            else:
+                self.hold_days = self.check_hold_days()
+                # 有持仓的情况下
                 # 加仓逻辑1
                 if self.data.close[0]>(self.first_price + 40)>(self.ma_55[0]+100):
                     self.order = self.sell(size = 0.1)
-                    self.hold_day += 1
+
                     self.add_position = 1
                 # 加仓逻辑2
                 elif (
                     (self.data.close[0]> (self.first_price + 100)) and (self.data.close[0]> (self.ma_55[0] + 100))
                     ):
                     self.order = self.sell(size = 0.2)
-                    self.hold_day += 1
                     self.add_position = 1
                 # 清仓逻辑
                 if self.add_position != 0:
-                    if self.data.close[0]< self.ma_55[0] -40:
+                    if self.data.close[0]< self.ma_55[0] - 40:
+                        self.log("现价<均线-40美金,退出...")
                         self.close()
 
+                # 单仓设定止盈600
                 elif self.add_position == 0:
-                    # 单笔盈利超过
-                    self.close()
-
-                elif self.hold_day>120:
+                    if self.broker.orders[0].executed.pnl >= 600:
                         self.close()
+                        self.log("单笔盈利超过600,退出止盈...")
+
+                elif self.hold_days>120:
+                        self.log("持仓周期120天止盈...")
+                        self.close()
+                else:
+                    pass
 
 
 def strategy_main():
@@ -153,7 +174,7 @@ def strategy_main():
 
     params = dict(
                 fromdate = datetime.datetime(2010,1,4),
-                todate = datetime.datetime(2020,3,20),
+                todate = datetime.datetime(2023,2,20),
                 timeframe = bt.TimeFrame.Days,
                 compression = 1,
                 #dtformat=('%Y-%m-%d %H:%M:%S'),
@@ -177,11 +198,12 @@ def strategy_main():
     cerebro.addstrategy(Mean_revert)
     cerebro.broker.setcommission(
                                 margin=1, # 必须为1 automargin=1000,# 不同货币的保证金可以使用公式计算得出   
-                                mult=100.0, # 100是杠杆的倍数，1000固定 
+                                mult=100.0, # 100是杠杆的倍数，1000固定
                                 ) # 设
     cerebro.broker.setcash(10000)
+    cerebro.broker.tradehistory = True
     cerebro.run()
-
+    cerebro.plot(style='candlestick')
 
 
 strategy_main()
