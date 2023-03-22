@@ -938,3 +938,7 @@ class Segment_stats():
         df.rename(columns=self._COL_NAME_MAP, inplace=True)
 
         return df.plot.bar(**kw)
+
+
+
+

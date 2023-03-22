@@ -6,7 +6,7 @@ PATH = r'C:\Users\kaiyu\Desktop\miller\work_need\other_docs\处罚信息2023年.
 df = pd.read_excel(PATH)
 
 # 填你的秘钥
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 def chat_gpt(prompt):
@@ -42,10 +42,8 @@ def process_text(text_i):
     print('-'*100)
     if text_i is not None:
         print('*'*50+'回答'+'*'*50)
-        res_1 = new_chat_model(text_i)
+        res_1 = new_chat_model(text_i+'请告诉我违规时间区间')
         print(res_1)
-        res_2 = new_chat_model("告诉我违规时间")
-        print(res_2)
         print('-'*100)
 
 df['法规依据'] = df['法规依据'].fillna('无内容,跳过')
@@ -64,8 +62,6 @@ for i in range(75,len(df)):
                 process_text(text_i,)
             except Exception as e:
                 print(f"出现错误:{e}")
-
-
 
 # 提问代码
 

@@ -6,9 +6,35 @@ import re
 import json
 import requests
 import time
+from sqlalchemy.dialects.oracle import BFILE, BLOB, CHAR, CLOB, DATE, DOUBLE_PRECISION, FLOAT, INTERVAL, LONG, NCLOB, NUMBER, NVARCHAR, NVARCHAR2, RAW, TIMESTAMP, VARCHAR, VARCHAR2
+from sqlalchemy import create_engine
 
+from sqlalchemy import types
+from sqlalchemy import null
 from hdf_helper import *
+import cx_Oracle as cx
 
+def init_engine():
+    engine = create_engine(
+    '''oracle+cx_oracle://{username}:{password}@{host}:{port}/?service_name={service}'''.format(
+        username="idb_gil",
+        password="70edf78d8f31cadc",
+        host="192.168.0.18",
+        port=1521,
+        service="ORCL",
+        encoding='utf-8',
+        pool_size=4,
+        # max_overflow=15,
+        # pool_timeout=30,
+        echo=True,
+    # pool_pre_ping=True
+    )
+    )
+    return engine
+
+
+
+# pd.read_sql("SELECT * FROM IDB_GIL.BOND_ABSBASICINFO ",engine)
 def get_url_data(table_id,req_headers,base_url,table_url,data_struc_type='0',dict_sub_key = ''):
 
         con_continnue = True
@@ -32,7 +58,7 @@ def get_url_data(table_id,req_headers,base_url,table_url,data_struc_type='0',dic
                 res = json.loads(res_.text)
                 res_df = pd.DataFrame(res)
 
-            # 标准的DataFrame类型
+        # 标准的DataFrame类型
             if data_struc_type == '1':
                 res = json.loads(res_.text)
                 if not dict_sub_key:
@@ -79,6 +105,33 @@ def get_all_table_info(table_id,header,base_url):
     # 涉及的QA部分的数据
     return table_info_df,column_info_df,slave_column_info_df,table_index_unique_df,table_change_desc_df,table_modify_date_df,example_info_df,Q_A_info_df
 
+def save_db_data(df, db, table_name, schema, chunksize=2000):
+    _dtype = {c: types.VARCHAR(df[c].str.len().max()) for c in
+              df.columns[df.dtypes == 'object'].tolist()}
+    with db.engine.begin() as conn:
+        df.to_sql(table_name,
+                  conn,
+                  if_exists="append",
+                  chunksize=chunksize,
+                  index=False,
+                  schema=schema,
+                  dtype=_dtype)
+    print("%s落库成功"%table_name)
+
+def mapping_df_types(data):  # 这里要做数据类型转换的，不然插入数据库操作会报错
+    dtypedict = {}
+    for i, j in zip(data.columns, data.dtypes):
+        if "object" in str(j):
+            dtypedict.update({i: VARCHAR(256)})
+        if "float" in str(j):
+            dtypedict.update({i: NUMBER(19, 8)})
+        if "int" in str(j):
+            dtypedict.update({i: VARCHAR(19)})
+        if "int64" in str(j):
+            dtypedict.update({i: VARCHAR(19)})
+    return dtypedict
+
+
 
 
 def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
@@ -92,7 +145,7 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
     table_change_desc_df,\
     table_modify_date_df,example_info_df,Q_A_info_df = get_all_table_info(table_id,req_headers,base_url)
 
-    method = 'xls'
+    method = 'sql'
 
     if method == 'xls':
         df_data_save = column_info_df
@@ -102,7 +155,34 @@ def catch_data_main(table_info,req_headers,base_url,h5_group_path_rela):
         # 写入文件
         with open('out_put.txt', 'a') as f:
                     f.write(f'{h5_group_path_rela}\n')
-    
+
+    if method == 'sql':
+        table_name = table_info_df['tableName'].iloc[0]
+
+
+        # dtypedict = mapping_df_types(example_info_df)
+        # def process_text_col(df):
+        clob_col = column_info_df.query('columnType == "clob" ')['columnName']
+        clob_col = clob_col.apply(lambda x:x.upper())
+            # 2
+            # col_info = column_info_df[['columnName','columnType']].dropna()
+            # dtypedict = dict(zip(col_info['columnName'].apply(lambda x:x.lower()).values,
+            #                          col_info['columnType'].apply(lambda x:eval(x.upper())).values)
+            #                          )
+            # 3
+        example_info_df.columns = [i.upper() for i in example_info_df.columns]
+        example_info_df = example_info_df.loc[:,~example_info_df.columns.isin(clob_col)]
+        example_info_df.loc[:,example_info_df.columns.str.contains('DATE')] = example_info_df.loc[:,example_info_df.columns.str.contains('DATE')].apply(lambda x:pd.to_datetime(x),axis=0)
+        try:
+            save_db_data(example_info_df, conn, table_name, schema='IDB_GIL', chunksize=2000)
+        except Exception as e:
+            print(f'{table_name},这个表没整进去,后面再整...')
+            with open(r'C:\Users\kaiyu\Desktop\miller\work_need\db_tasks\error_logs.txt','a') as f:
+                f.write('-'*70+"start"'-'*70)
+                f.write(str(e)+'\t')
+                f.write('-'*50+'end'+'-'*70)
+        # a = pd.read_sql(f'select * from IDB_GIL.{table_name}',conn)
+
     elif method == 'h5':
         h5_client = h5_helper(h5_group_path_rela+'_'+'table'+'.h5')
 
@@ -226,7 +306,7 @@ def initial_file_path(tree_nodes,
 
 base_url = 'https://dd.gildata.com/'
 
-cookie = '''SESSION=d520ccc1-f40d-432a-be94-679cade482cf; rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo='''
+cookie = '''rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo=; SESSION=700741e8-1fd3-4887-bc8a-1d0410aaa8eb'''
 
 # Override the default request headers:
 req_headers = {
@@ -242,6 +322,8 @@ all_tree_url = f'/api/productGroupTreeWithTables/8/802/ALL_TREE'
 # 获取主节点的信息
 res_all_tree = requests.get(base_url+all_tree_url,headers=req_headers)
 res_all_tree = json.loads(res_all_tree.text) 
+
+conn = init_engine()
 # 声明空列表方便存储
 all_df_lst = []
 # 获取所有data_set的信息
@@ -252,15 +334,17 @@ all_data_set_path = 'Juyuan_datafile'
 if not os.path.exists(all_data_set_path):
         os.mkdir(all_data_set_path)
 
+
+
 for i in range (len(all_dataset_name['nodes']) ):
-        initial_file_path(all_dataset_name['nodes'][i])
+         initial_file_path(all_dataset_name['nodes'][i])
 
 # 使用xlsx的时候可以用下面的代码 #
-file_path = 'target_sheet_.xlsx'
-f = all_df_lst
-result = pd.concat(f, axis=0,ignore_index=True)  # 将两个文件concat，也就是合并
-if not os.path.exists(file_path):
-    result.to_excel(file_path, index=False,encoding ='gbk',)
+# file_path = 'target_sheet_.xlsx'6
+# f = all_df_lst
+# result = pd.concat(f, axis=0,ignore_index=True)  # 将两个文件concat，也就是合并
+# if not os.path.exists(file_path):
+#     result.to_excel(file_path, index=False,encoding ='gbk',)
 
 
 

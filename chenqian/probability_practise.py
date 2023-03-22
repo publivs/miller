@@ -43,6 +43,10 @@ def pi_distributes(lamd='lambda',k='k'):
     pi_dist = (lamd**k * sy.exp(-lamd))/sy.factorial(k)
     return pi_dist
 
+def rayleigh_distribution():
+    dist = (x/sigma**2)*sy.exp(-x**2/(2*sigma**2))
+    return dist
+
 # practise_5
 x = sy.symbols('x')
 y = sy.symbols('y')
@@ -812,4 +816,15 @@ P_= 1/times
 E_X = (1/n)* n
 
 # 15 锁为1，钥匙为n
+# 设事[第K次试开始成功的,但之前都是失败]
+P_15 = 1/n
+E_X_15 = sy.summation(k*1/n,(k,1,n)).simplif()
+k = sy.symbols('k')
+
+#16
+f_x = rayleigh_distribution()
+
+#　包不能只能换元
+Ex = sy.integrate(x*f_x,(x,0,sy.oo))
+
 

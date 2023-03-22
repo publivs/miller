@@ -83,7 +83,7 @@ class Mean_revert(bt.Strategy):
             self.sell_size = 0
             self.hold_days = 0
             self.first_price = 0
-            self.add_position = 0
+            self.add_position = 0   
             self.first_day = 0
 
         def notify_order(self,order):
