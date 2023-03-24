@@ -47,6 +47,19 @@ def rayleigh_distribution():
     dist = (x/sigma**2)*sy.exp(-x**2/(2*sigma**2))
     return dist
 
+def quick_inv_func(f):
+    u = sy.symbols(f'u')
+    # 求解逆函数
+    f_inv = sy.solve(f - u, x)
+    # 输出逆函数
+    return f_inv[1]
+
+def sqrt_2_pow(expr):
+    expr = sp.powsimp(expr, force=True)
+
+    # 使用 replace 将幂形式中的 2 次幂转换为 1/2 次幂
+    expr = expr.replace(sp.Pow(x, 1/2), x**(1/2))
+    return expr
 # practise_5
 x = sy.symbols('x')
 y = sy.symbols('y')
@@ -825,6 +838,21 @@ k = sy.symbols('k')
 f_x = rayleigh_distribution()
 
 #　包不能只能换元
-Ex = sy.integrate(x*f_x,(x,0,sy.oo))
+# Ex = sy.integrate(x*f_x,(x,0,sy.oo))
 
+f_x_k = x*f_x
+u_exp = x**2/sigma**2/2
+delta_ = quick_inv_func(u_exp).diff(u)
+f_x_k = (f_x_k/2).subs({u_exp:'u'}) *2
+E_x_exp  =  f_x_k*delta_.subs(sp.sqrt(u), u**(1/2))
+E_X = sy.integrate(E_x.simplify(),(u,0,sy.oo))
 
+#
+f_x_k = x*x*f_x
+u_exp = x**2/sigma**2/2
+delta_ = quick_inv_func(u_exp).diff(u)
+f_x_k = (f_x_k/2).subs({u_exp:'u'}) *2
+E_x_exp  =  f_x_k*delta_.subs(sp.sqrt(u), u**(1/2))
+E_X = sy.integrate(E_x.simplify(),(u,0,sy.oo))
+
+D_X = 2*sigma
