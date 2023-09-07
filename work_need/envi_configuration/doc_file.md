@@ -38,7 +38,7 @@ https://zhuanlan.zhihu.com/p/622020107
 
 
 # 模型合成
- python -m fastchat.model.apply_delta --base  ./vicuna_model/pyllama_data/output/7B  --delta ./vicuna_model/vicuna-7b-delta-v1.1 --target ./vicuna_model/vicuna-7b-v1.1
+python -m fastchat.model.apply_delta --base  ./vicuna_model/pyllama_data/output/7B  --delta ./vicuna_model/vicuna-7b-delta-v1.1 --target ./vicuna_model/vicuna-7b-v1.1
 
 
 # fine-tuning 相关的方案
@@ -64,7 +64,7 @@ https://github.com/little51/FastChat
 curl http://localhost:8000/v1/chat/completions/stream  -H "Content-Type: application/json" -d '{"model": "vicuna-7b-v1.1","messages": [{"role": "user", "content": "请写一篇100字的日记"}]}'   
 
 # Api_流式部署
-pkill -9 -f fastchat   # 这里是清掉所有fastchat进程
+pkill -9 -f fastchat  #  这里是清掉所有fastchat进程
 python -u -m fastchat.serve.controller 
 python -u -m fastchat.serve.model_worker --model-name 'vicuna-7b-v1.1' --model-path vicuna_model/vicuna-7b-v1.1 
 python -u -m fastchat.serve.api_stream --host 0.0.0.0 --port 8000 
@@ -76,7 +76,7 @@ netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 conne
 # 代理删除
 netsh interface portproxy delete v4tov4 listenport=80 listenaddress=0.0.0.0
 
-# 后续需要绑定固定IP[不然没办法部署]
+
 
 # ---------------------- 华丽的分割线 ----------------------- # 
 # 微调

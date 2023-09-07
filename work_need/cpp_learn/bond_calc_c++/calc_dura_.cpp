@@ -3,7 +3,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
-double calculate_ytm(double presentvalue,
+double calculate_ytm(double presentvalue,  
                     const std::vector<double>& cashflow,
                     const std::vector<double>& time_list,
                     double guess = 0.01,
