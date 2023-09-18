@@ -1,40 +1,49 @@
 #include <iostream>
 #include <cmath>
-#include <functional>
-double ytm_nolast(double PV, double C, double freq, double d, double n, double M, double TS, double* cf = nullptr) {
-    if (cf == nullptr) {
-        static double default_cf = C / freq;
-        cf = &default_cf;
+#include <vector>
+#include <numeric>
+#include <algorithm>
+#include <type_traits>
+double ytm_nolast(double PV, double C, double freq, std::vector<int> d, double n, double M, int TS, std::vector<double> cf = {}) {
+    if (cf.empty()) {
+        cf.push_back(C / freq);
     }
     
     if (TS == 0) {
-        std::cerr << "TS为0，无法解出" << std::endl;
-        return std::nan("");
+        std::cerr << "TS is 0, cannot solve" << std::endl;
+        return NAN;
     }
     
-    std::function<double(double)> f_d = [=](double y) {
-        double sum = 0.0;
-        for (int t = 0; t < n; t++) {
-            sum += cf[t] * std::pow(1 + y / freq, -((d / TS) + t));
+    auto f_d = [&](double y) {
+        std::vector<double> t(n);
+        for (int i = 0; i < n; i++) {
+            t[i] = i;
         }
-        return sum + M * std::pow(1 + y / freq, -((d / TS) + n - 1)) - PV;
+        std::vector<double> coupon(n);
+        for (int i = 0; i < n; i++) {
+            coupon[i] = cf[i] * pow(1 + y / freq, -((d[i]) / TS + t[i]));
+        }
+        return std::accumulate(coupon.begin(), coupon.end(), 0.0) + M * pow(1 + y / freq, -((d[n-1]) / TS + n - 1)) - PV;
     };
     
-    std::function<double(double)> f_d_list = [=](double y) {
-        double sum = 0.0;
-        for (int t = 0; t < n; t++) {
-            sum += cf[t] * std::pow(1 + y, -(d / TS));
+    auto f_d_list = [&](double y) {
+        std::vector<double> coupon(n);
+        for (int i = 0; i < n; i++) {
+            coupon[i] = cf[i] * pow(1 + y, -((d[i]) / TS));
         }
-        return sum - PV;
+        return std::accumulate(coupon.begin(), coupon.end(), 0.0) - PV;
     };
     
-    std::function<double(double)> f = d == static_cast<int>(d) ? f_d : f_d_list;
-    
-    std::function<double(double)> f_diff = [=](double y) {
+    auto f_diff = [&](double y) {
         double delta_y = 0.000001;
-        return (f(y + delta_y) - f(y - delta_y)) / (2 * delta_y);
+        return (f_d(y + delta_y) - f_d(y - delta_y)) / (2 * delta_y);
     };
     
+    auto f = f_d;
+    if (std::is_same_v<decltype(d), std::vector<int>>) {
+        f = f_d_list;
+    }
+        
     double y_guess = C / 100.0;
     int maxiter = 50;
     double tol = 1e-8;
@@ -46,22 +55,19 @@ double ytm_nolast(double PV, double C, double freq, double d, double n, double M
         }
     }
     
-    std::cerr << "求解出现问题，请进行验证" << std::endl;
-    return std::nan("");
+    std::cerr << "Failed to solve" << std::endl;
+    return NAN;
 }
 int main() {
-    double PV = 101.6781;
-    double C = 3.29;
-    double freq = 2.0;
-    double d = 3.0;
-    double n = 18.0;
-    double M = 100.0;
-    double TS = 184.0;
-    
-    double cf[18] = {3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 3.29, 103.29};
-    
-    double ytm = ytm_nolast(PV, C, freq, d, n, M, TS, cf);
-    std::cout << "定息债券的到期收益率为：" << ytm * 100 << "%" << std::endl;
-    
+    double PV = 90.9743;
+    double C = 6.0;
+    double freq = 1.0;
+    std::vector<int> d = {185, 550};
+    double n = 2.0;
+    double M = 0.0;
+    int TS = 365;
+    std::vector<double> cf = {16.0, 95.4};
+    double YTM = ytm_nolast(PV, C, freq, d, n, M, TS, cf);
+    std::cout << "The yield to maturity of the bond is: " << YTM * 100 << "%" << std::endl;
     return 0;
 }

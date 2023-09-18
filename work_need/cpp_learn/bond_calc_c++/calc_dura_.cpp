@@ -9,7 +9,6 @@ double calculate_ytm(double presentvalue,
                     double guess = 0.01,
                     double tol = 1e-6,
                     int max_iter = 100)
-
     {
     std::function<double(double)> ff = [&](double y) {
         double cash_all = 0;
@@ -35,6 +34,7 @@ double calculate_ytm(double presentvalue,
     }
     return y;
 }
+
 int main() 
 {
     double presentvalue = 1000.0;
