@@ -1,8 +1,14 @@
-import pandas as pd 
-import numpy as np 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1"
 
+from typing import Optional, Union
+import pandas as pd, numpy as np, torch
+from datasets import Dataset
+from dataclasses import dataclass
 from transformers import AutoTokenizer
-import torch
+from transformers import EarlyStoppingCallback
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
+from transformers import AutoModelForMultipleChoice, TrainingArguments, Trainer
 
 data_path = '/usr/src/kaggle_/kaggle_llm_code/kaggle_dataset/kaggle-llm-science-exam'
 df_train = pd.read_csv(data_path+'/'+'train.csv')
@@ -13,15 +19,33 @@ extra_train_df = pd.read_csv('/usr/src/kaggle_/kaggle_llm_code/kaggle_dataset/ka
 
 df_train = pd.concat([df_train,extra_train_df]).reset_index(drop=True)
 
+VER=2
+# TRAIN WITH SUBSET OF 60K
+NUM_TRAIN_SAMPLES = 1_024
+# PARAMETER EFFICIENT FINE TUNING
+# PEFT REQUIRES 1XP100 GPU NOT 2XT4
+USE_PEFT = False
+# NUMBER OF LAYERS TO FREEZE 
+# DEBERTA LARGE HAS TOTAL OF 24 LAYERS
+FREEZE_LAYERS = 18
+# BOOLEAN TO FREEZE EMBEDDINGS
+FREEZE_EMBEDDINGS = True
+# LENGTH OF CONTEXT PLUS QUESTION ANSWER
+MAX_INPUT = 256
+# HUGGING FACE MODEL
+MODEL = 'microsoft/deberta-v3-large'
+
 option_to_index = {option: idx for idx, option in enumerate('ABCDE')}
 index_to_option = {v: k for k,v in option_to_index.items()}
 
-tokenizer = AutoTokenizer.from_pretrained(deberta_v3_large)
+option_to_index = {option: idx for idx, option in enumerate('ABCDE')}
+index_to_option = {v: k for k,v in option_to_index.items()}
 
 def preprocess(example):
-    first_sentence = [example['prompt']] * 5
-    second_sentences = [example[option] for option in 'ABCDE']
-    tokenized_example = tokenizer(first_sentence, second_sentences, truncation=True)
+    first_sentence = [ "[CLS] " + example['context'] ] * 5
+    second_sentences = [" #### " + example['prompt'] + " [SEP] " + example[option] + " [SEP]" for option in 'ABCDE']
+    tokenized_example = tokenizer(first_sentence, second_sentences, truncation='only_first', 
+                                  max_length=MAX_INPUT, add_special_tokens=False)
     tokenized_example['label'] = option_to_index[example['answer']]
     
     return tokenized_example
@@ -50,11 +74,11 @@ class DataCollatorForMultipleChoice:
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors='pt',
         )
-
         batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
         batch['labels'] = torch.tensor(labels, dtype=torch.int64)
         return batch
     
-tokenizer = AutoTokenizer.from_pretrained(deberta_v3_large)
-
+tokenizer = AutoTokenizer.from_pretrained(MODEL)
+# dataset_valid = Dataset.from_pandas(df_valid)
 dataset = Dataset.from_pandas(df_train)
+dataset = dataset.remove_columns(["__index_level_0__"])
