@@ -66,7 +66,6 @@ if TRAINING:
 
 models = []
 
-
 def train(model_dict, modelname='lgb'):
     if TRAINING:
         model = model_dict[modelname]

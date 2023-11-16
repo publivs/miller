@@ -92,7 +92,6 @@ def compute_triplet_imbalance(df_values, comb_indices):
                 imbalance_features[j, i] = np.nan
             else:
                 imbalance_features[j, i] = (max_val - mid_val) / (mid_val - min_val)
-
     return imbalance_features
 
 def calculate_triplet_imbalance_numba(price, df):
@@ -139,16 +138,16 @@ def imbalance_features(df):
         df[f"all_prices_{func}"] = df[prices].agg(func, axis=1)
         df[f"all_sizes_{func}"] = df[sizes].agg(func, axis=1)
         
-    # V3
+    # V3 shift_features
     for col in ['matched_size', 'imbalance_size', 'reference_price', 'imbalance_buy_sell_flag']:
-        for window in [1, 2, 3,5, 10]:
+        for window in [1, 2, 3, 5, 10]:
             df[f"{col}_shift_{window}"] = df.groupby('stock_id')[col].shift(window)
             df[f"{col}_ret_{window}"] = df.groupby('stock_id')[col].pct_change(window)
             
     for col in ['ask_price', 'bid_price', 'ask_size', 'bid_size']:
-        for window in [1, 2, 3,5, 10]:
+        for window in [1, 2, 3, 5, 10]:
             df[f"{col}_diff_{window}"] = df.groupby("stock_id")[col].diff(window)
-
+    # V4 
     return df.replace([np.inf, -np.inf], 0)
 
 
@@ -160,8 +159,28 @@ def other_features(df):
 
     for key, value in global_stock_id_feats.items():
         df[f"global_{key}"] = df["stock_id"].map(value.to_dict())
+    return df
+
+# generate_rolling_features
+def rolling_and_expanding_features(df,):
+
+    window_size = [2, 3, 5, 10]
+    
+    # F_rolling
+    rolling_features = ['bid_size', 'ask_size', 'bid_price', 'ask_price', 'imbalance_size', 'matched_size', 'wap']
+    for window_size_i in window_size:
+        for feature in rolling_features:
+            df[f'{feature}_rolling_std_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).std())
+            df[f'{feature}_rolling_median_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).median())
+
+    # F_expanding calc_relative_delta
+    for window_size_i in window_size:
+        denominator_ = df['mid_price'].expanding(window_size_i).max() - df['mid_price'].expanding(window_size_i).min()
+        df[f'{feature}_relativedelta_{window_size_i}_upside']  = ( df['mid_price'].expanding(window_size_i).max() - df['mid_price'])/denominator_
+        df[f'{feature}_relativedelta_{window_size_i}_downside'] = ( df['mid_price'] - df['mid_price'].expanding(window_size_i).min())/denominator_
 
     return df
+
 
 # generate all features
 def generate_all_features(df):
@@ -169,6 +188,7 @@ def generate_all_features(df):
     df = df[cols]
     df = imbalance_features(df)
     df = other_features(df)
+    df = rolling_and_expanding_features(df,)
     gc.collect()
     
     feature_name = [i for i in df.columns if i not in ["row_id", "target", "time_id", "date_id"]]
@@ -235,27 +255,25 @@ if is_train:
     df_train_feats = reduce_mem_usage(df_train_feats)
 
 model_dict_list = [
-    {'model': lgb.LGBMRegressor,
-     'name':'lgb',
-     'params': {
-         "objective": "mae",
-         "n_estimators": 3000,
-         "num_leaves": 128,
-         "subsample": 0.6,
-         "colsample_bytree": 0.6,
-         "learning_rate": 0.05,
-         "n_jobs": 12,
-         "device": "cuda",
-         "verbosity": -1,
-         "importance_type": "gain",
-
-     }
-     ,
-    "callbacks":[
-    lgb.callback.early_stopping(stopping_rounds=100),
-    lgb.callback.log_evaluation(period=100),
-    ],
-    },
+            # {
+    #     'model': lgb.LGBMRegressor,
+    #     'name': 'lgb',
+    #     'params': {
+    #         "objective": "mae",
+    #         "n_estimators": 3000,
+    #         "num_leaves": 128,
+    #         "subsample": 0.6,
+    #         "colsample_bytree": 0.6,
+    #         "learning_rate": 0.05,
+    #         "n_jobs": 12,
+    #         "device": "cuda",
+    #         "verbosity": 1,
+    #         "importance_type": "gain",
+    #         },
+    #           "callbacks": [
+    #             lgb.callback.early_stopping(stopping_rounds=100),
+    #             lgb.callback.log_evaluation(period=100),]
+    # },
 
     # {'model': xgb.XGBRegressor,
     #  'name':'xgb',
@@ -275,10 +293,10 @@ model_dict_list = [
     {'model': cbt.CatBoostRegressor,
      'name':'lgb',
      'params': {
-                'objective': 'MAE',
+                'objective': 'RMSE',
                 'iterations': 3000,
                 "learning_rate": 0.05,
-                "verbose": -1,
+                "verbose": 1,
                 'early_stopping_rounds': 100,
                 'task_type':"GPU",
                 'depth':8,
@@ -300,10 +318,10 @@ for model_dict in model_dict_list:
         feature_name = list(df_train_feats.columns)
         print(f"Feature length = {len(feature_name)}")
         offline_split = df_train['date_id']>(split_day - 45)
-        df_offline_train = df_train_feats[~offline_split]
-        df_offline_valid = df_train_feats[offline_split]
-        df_offline_train_target = df_train['target'][~offline_split]
-        df_offline_valid_target = df_train['target'][offline_split]
+        df_offline_train = df_train_feats[~offline_split].copy(deep = True)
+        df_offline_valid = df_train_feats[offline_split].copy(deep = True)
+        df_offline_train_target = df_train['target'][~offline_split].copy(deep = True)
+        df_offline_valid_target = df_train['target'][offline_split].copy(deep = True)
 
         print("Valid Model Trainning.")
         _model = model_(**model_params)
@@ -314,7 +332,7 @@ for model_dict in model_dict_list:
 
         )
         
-        del df_offline_train, df_offline_valid, df_offline_train_target, df_offline_valid_target
+        del df_offline_train, df_offline_train_target
         gc.collect()
 
         # infer
@@ -324,7 +342,9 @@ for model_dict in model_dict_list:
         best_iter_n = _model.best_iteration_ if hasattr(_model, "best_iteration_") else _model.best_iteration
         infer_params["n_estimators"] = int(1.2 * best_iter_n)
         infer__model =  model_(**model_params)
-        infer__model.fit(df_train_feats[feature_name], df_train_target)
+        infer__model.fit(df_train_feats[feature_name], df_train_target,
+                         eval_set=[(df_offline_valid[feature_name], df_offline_valid_target)],
+                         )
 
         if is_offline:   
             # offline predictions
