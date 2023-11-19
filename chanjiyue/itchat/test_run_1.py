@@ -14,3 +14,6 @@ for item in friends:
 if friend:
     # 发送消息
     itchat.send('Hello, World!', toUserName=friend['UserName'])
+
+# 月月的需求
+print('1111')
