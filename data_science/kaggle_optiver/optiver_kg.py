@@ -25,14 +25,18 @@ import logging
 logger = logging.getLogger('mylogger')
 
 import optiver2023
-
-data_path = r'/usr/src/kaggle_/optiver-trading-at-the-close'
+if is_offline:
+    data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
+else:
+    # data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
+    data_path = r'/kaggle/input/optiver-trading-at-the-close'
 path_train  = data_path+  '/train.csv'
 train_df = pd.read_csv(path_train)
 df = train_df.dropna(subset=["target"])
 df.reset_index(drop=True, inplace=True)
 df.shape
- 
+print('Data Loaded!')
+
 def generate_features(df):
 
     features = ['seconds_in_bucket', 'imbalance_buy_sell_flag',
@@ -96,7 +100,6 @@ def reduce_mem_usage(df, verbose=0):
     return df
 
 from numba import njit, prange
-
 @njit(parallel=True)
 def compute_triplet_imbalance(df_values, comb_indices):
     num_rows = df_values.shape[0]
@@ -252,6 +255,7 @@ def select_features(df,method = 'corr'):
     
     elif method == 'no':
         return df
+print('Feature function Loaded!')
 
 weights = [
     0.004, 0.001, 0.002, 0.006, 0.004, 0.004, 0.002, 0.006, 0.006, 0.002, 0.002, 0.008,
@@ -312,10 +316,7 @@ if is_train:
 
     df_train_feats = reduce_mem_usage(df_train_feats)
 
-import numpy as np
-import lightgbm as lgb
-from sklearn.metrics import mean_absolute_error
-import gc
+print('Processing of all features in the dataframe (df) is completed!')
 
 model_dict_list = [
                 {
@@ -323,7 +324,7 @@ model_dict_list = [
         'name': 'lgb',
         "params":{
         "objective": "mae",
-        "n_estimators": 3000,
+        "n_estimators": 6000,
         "num_leaves": 256,
         "subsample": 0.6,
         "colsample_bytree": 0.8,
@@ -345,7 +346,7 @@ model_dict_list = [
     # 'name':'cat',
     # 'params': {
     #         'objective': 'RMSE',
-    #         'iterations': 3000,
+    #         'iterations': 6000,
     #         "learning_rate": 0.025,
     #         "verbose": 1,
     #         'early_stopping_rounds': 100,
@@ -356,6 +357,7 @@ model_dict_list = [
     # ],
     # }
 ]
+print('Params Loaded!')
 
 feature_name = list(df_train_feats.columns)
 print(f"Feature length = {len(feature_name)}")
@@ -366,6 +368,7 @@ def zero_sum(prices, volumes):
     out = prices-std_error*step 
     return out
 
+print('Now,we are going to training!~')
 for model_dict in model_dict_list:
 
     name = model_dict['name']
