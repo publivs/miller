@@ -14,11 +14,17 @@ from sklearn.model_selection import KFold, TimeSeriesSplit
 warnings.filterwarnings("ignore")
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
+#--------------------------#
+# 计算调试开关
 is_offline = True 
+#--------------------------#
+
+
 is_train = True  
 is_infer = True 
 max_lookback = np.nan 
 split_day = 435 
+lgb_accelerator = 'cuda' if is_offline else 'gpu'
 
 import logging
 
@@ -41,8 +47,8 @@ def generate_features(df):
 
     features = ['seconds_in_bucket', 'imbalance_buy_sell_flag',
                'imbalance_size', 'matched_size', 'bid_size', 'ask_size',
-                'reference_price','far_price', 'near_price', 'ask_price', 'bid_price', 'wap',
-                'imb_s1', 'imb_s2']
+                'reference_price','far_price', 'near_price', 'ask_price', 
+                'bid_price', 'wap','imb_s1', 'imb_s2']
     
     df['imb_s1'] = df.eval('(bid_size-ask_size)/(bid_size+ask_size)')
     df['imb_s2'] = df.eval('(imbalance_size-matched_size)/(matched_size+imbalance_size)')
@@ -80,7 +86,7 @@ def reduce_mem_usage(df, verbose=0):
                     df[col] = df[col].astype(np.int8)
                 elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
                     df[col] = df[col].astype(np.int16)
-                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max: 
                     df[col] = df[col].astype(np.int32)
                 elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
                     df[col] = df[col].astype(np.int64)
@@ -207,6 +213,118 @@ def relativedelta_features(df):
             df[f'{feature}_relativedelta_{window_size_i}_downside'] = ( df['mid_price'] - df['mid_price'].expanding(window_size_i).min())/denominator_
     return df
 
+
+def add_TA_features(df):
+
+    @njit(parallel = True)
+    def calculate_rsi(prices, period=14):
+        rsi_values = np.zeros_like(prices)
+
+        for col in prange(prices.shape[1]):
+            price_data = prices[:, col]
+            delta = np.zeros_like(price_data)
+            delta[1:] = price_data[1:] - price_data[:-1]
+            gain = np.where(delta > 0, delta, 0)
+            loss = np.where(delta < 0, -delta, 0)
+
+            avg_gain = np.mean(gain[:period])
+            avg_loss = np.mean(loss[:period])
+            
+            if avg_loss != 0:
+                rs = avg_gain / avg_loss
+            else:
+                rs = 1e-9  # or any other appropriate default value
+                
+            rsi_values[:period, col] = 100 - (100 / (1 + rs))
+
+            for i in prange(period-1, len(price_data)-1):
+                avg_gain = (avg_gain * (period - 1) + gain[i]) / period
+                avg_loss = (avg_loss * (period - 1) + loss[i]) / period
+                if avg_loss != 0:
+                    rs = avg_gain / avg_loss
+                else:
+                    rs = 1e-9  # or any other appropriate default value
+                rsi_values[i+1, col] = 100 - (100 / (1 + rs))
+        return rsi_values
+    
+    @njit(parallel=True)
+    def calculate_macd(data, short_window=12, long_window=26, signal_window=9):
+        rows, cols = data.shape
+        macd_values = np.empty((rows, cols))
+        signal_line_values = np.empty((rows, cols))
+        histogram_values = np.empty((rows, cols))
+
+        for i in prange(cols):
+            short_ema = np.zeros(rows)
+            long_ema = np.zeros(rows)
+
+            for j in range(1, rows):
+                short_ema[j] = (data[j, i] - short_ema[j - 1]) * (2 / (short_window + 1)) + short_ema[j - 1]
+                long_ema[j] = (data[j, i] - long_ema[j - 1]) * (2 / (long_window + 1)) + long_ema[j - 1]
+
+            macd_values[:, i] = short_ema - long_ema
+
+            signal_line = np.zeros(rows)
+            for j in range(1, rows):
+                signal_line[j] = (macd_values[j, i] - signal_line[j - 1]) * (2 / (signal_window + 1)) + signal_line[j - 1]
+
+            signal_line_values[:, i] = signal_line
+            histogram_values[:, i] = macd_values[:, i] - signal_line
+
+        return macd_values, signal_line_values, histogram_values
+    
+    @njit(parallel=True)
+    def calculate_bband(data, window=20, num_std_dev=2):
+        num_rows, num_cols = data.shape
+        upper_bands = np.zeros_like(data)
+        lower_bands = np.zeros_like(data)
+        mid_bands = np.zeros_like(data)
+
+        for col in prange(num_cols):
+            for i in prange(window - 1, num_rows):
+                window_slice = data[i - window + 1 : i + 1, col]
+                mid_bands[i, col] = np.mean(window_slice)
+                std_dev = np.std(window_slice)
+                upper_bands[i, col] = mid_bands[i, col] + num_std_dev * std_dev
+                lower_bands[i, col] = mid_bands[i, col] - num_std_dev * std_dev
+
+        return upper_bands, mid_bands, lower_bands
+    
+    prices = ["reference_price", "far_price", "near_price", "ask_price", "bid_price", "wap"]
+    
+    for stock_id, values in df.groupby(['stock_id'])[prices]:
+        # RSI
+        col_rsi = [f'rsi_{col}' for col in values.columns]
+        rsi_values = calculate_rsi(values.values)
+        df.loc[values.index, col_rsi] = rsi_values
+        gc.collect()
+        
+        # MACD
+        macd_values, signal_line_values, histogram_values = calculate_macd(values.values)
+        col_macd = [f'macd_{col}' for col in values.columns]
+        col_signal = [f'macd_sig_{col}' for col in values.columns]
+        col_hist = [f'macd_hist_{col}' for col in values.columns]
+        
+        df.loc[values.index, col_macd] = macd_values
+        df.loc[values.index, col_signal] = signal_line_values
+        df.loc[values.index, col_hist] = histogram_values
+        gc.collect()
+        
+        # Bollinger Bands
+        bband_upper_values, bband_mid_values, bband_lower_values = calculate_bband(values.values, window=20, num_std_dev=2)
+        col_bband_upper = [f'bband_upper_{col}' for col in values.columns]
+        col_bband_mid = [f'bband_mid_{col}' for col in values.columns]
+        col_bband_lower = [f'bband_lower_{col}' for col in values.columns]
+        
+        df.loc[values.index, col_bband_upper] = bband_upper_values
+        df.loc[values.index, col_bband_mid] = bband_mid_values
+        df.loc[values.index, col_bband_lower] = bband_lower_values
+        gc.collect()
+    
+    return df
+
+
+
 def generate_all_features(df):
     # Select relevant columns for feature generation
     cols = [c for c in df.columns if c not in ["row_id", "time_id", "target"]]
@@ -216,6 +334,7 @@ def generate_all_features(df):
     df = other_features(df)
     df = rolling_features(df)
     df = relativedelta_features(df)
+    df = add_TA_features(df)
     gc.collect()  
     feature_name = [i for i in df.columns if i not in ["row_id", "target", "time_id", "date_id"]]
     return df[feature_name]
@@ -242,14 +361,16 @@ def select_features(df,method = 'corr'):
         correlated_features  = corr_se.sort_values().iloc[int(np.round(n_components)):].index
         df_selected = df.drop(correlated_features,axis=1)
         return df_selected
-        
+    
+    select_ratio = 0.75
+
     if method  == 'pca':
-        k = len(df.columns)*0.75
+        k = len(df.columns)*select_ratio
         df = pca_feature_selection(df, k)
         return df
     
     elif method == "corr":
-        k = len(df.columns)*0.75
+        k = len(df.columns)*select_ratio
         df = corr_feature_selection(df, k)
         return df
     
@@ -319,7 +440,29 @@ if is_train:
 print('Processing of all features in the dataframe (df) is completed!')
 
 model_dict_list = [
-                {
+    #             {
+    #     'model': lgb.LGBMRegressor,
+    #     'name': 'lgb',
+    #     "params":{
+    #     "objective": "mae",
+    #     "n_estimators": 6000,
+    #     "num_leaves": 256,
+    #     "subsample": 0.6,
+    #     "colsample_bytree": 0.8,
+    #     "learning_rate": 0.00871,
+    #     'max_depth': 11,
+    #     "n_jobs": 4,
+    #     "device": "cuda",
+    #     "verbosity": 1,
+    #     "importance_type": "gain",}
+    #     ,
+    #     "callbacks": [
+    #     lgb.callback.early_stopping(stopping_rounds=100),
+    #     lgb.callback.log_evaluation(period=100),
+    #     ]
+    # },
+
+               {
         'model': lgb.LGBMRegressor,
         'name': 'lgb',
         "params":{
@@ -330,10 +473,20 @@ model_dict_list = [
         "colsample_bytree": 0.8,
         "learning_rate": 0.00871,
         'max_depth': 11,
-        "n_jobs": 4,
+        "n_jobs": 8,
         "device": "cuda",
         "verbosity": 1,
-        "importance_type": "gain",}
+        "importance_type": "gain",
+        "min_child_samples": 15,  # Minimum number of data points in a leaf
+        "reg_alpha": 0.1,  # L1 regularization term
+        "reg_lambda": 0.3,  # L2 regularization term
+        "min_split_gain": 0.2,  # Minimum loss reduction required for further partitioning
+        "min_child_weight": 0.001,  # Minimum sum of instance weight (hessian) in a leaf
+        "bagging_fraction": 0.9,  # Fraction of data to be used for training each tree
+        "bagging_freq": 5,  # Frequency for bagging
+        "feature_fraction": 0.9,  # Fraction of features to be used for training each tree
+        "num_threads": 4,  # Number of threads for LightGBM to use
+        }
         ,
         "callbacks": [
         lgb.callback.early_stopping(stopping_rounds=100),
