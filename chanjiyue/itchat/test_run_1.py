@@ -1,19 +1,19 @@
 import itchat
+import pandas as pd
 # 登录
-itchat.auto_login()
+from itchat.content import *
+
+
+@itchat.msg_register([TEXT,NOTE])
+def text_reply(msg):
+    print(msg)
+
+
+@itchat.msg_register([TEXT,NOTE],isGroupChat=True)
+def daily_task_msg(msg):
+    response = msg
+    return '收到'
+# 登录
+itchat.auto_login(hotReload=True)
+# 开始接收微信消息
 itchat.run()
-
-# 获取好友列表
-friends = itchat.get_friends(update=True)
-# 找到指定好友
-friend = None
-for item in friends:
-    if item['RemarkName'] == '某某某':
-        friend = item
-        break
-if friend:
-    # 发送消息
-    itchat.send('Hello, World!', toUserName=friend['UserName'])
-
-# 月月的需求
-print('1111')
