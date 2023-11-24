@@ -16,9 +16,8 @@ simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 #--------------------------#
 # 计算调试开关
-is_offline = True 
+is_offline = False 
 #--------------------------#
-
 
 is_train = True  
 is_infer = True 
@@ -30,7 +29,6 @@ import logging
 
 logger = logging.getLogger('mylogger')
 
-import optiver2023
 if is_offline:
     data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
 else:
@@ -339,7 +337,7 @@ def generate_all_features(df):
     feature_name = [i for i in df.columns if i not in ["row_id", "target", "time_id", "date_id"]]
     return df[feature_name]
 
-def select_features(df,method = 'corr'):
+def select_features(df,method = 'corr',select_ratio = 0.75):
 
     def pca_feature_selection(df, n_components):
         from sklearn.decomposition import PCA
@@ -362,7 +360,7 @@ def select_features(df,method = 'corr'):
         df_selected = df.drop(correlated_features,axis=1)
         return df_selected
     
-    select_ratio = 0.75
+    select_ratio = 0.7
 
     if method  == 'pca':
         k = len(df.columns)*select_ratio
@@ -431,6 +429,7 @@ if is_train:
         df_train_feats = df_train_feats[target_col]
     else:
         df_train_feats = generate_all_features(df_train)
+        df_train_feats = select_features(df_train_feats)
         target_col = df_train_feats.columns
         df_train_feats = df_train_feats[target_col]
         print("Build Online Train Feats Finished.")
@@ -462,7 +461,7 @@ model_dict_list = [
     #     ]
     # },
 
-               {
+        {
         'model': lgb.LGBMRegressor,
         'name': 'lgb',
         "params":{
@@ -610,3 +609,4 @@ for model_dict in model_dict_list:
             
         time_cost = 1.146 * np.mean(qps)
         print(f"The code will take approximately {np.round(time_cost, 4)} hours to reason about")
+6
