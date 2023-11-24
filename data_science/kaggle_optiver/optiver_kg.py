@@ -360,7 +360,11 @@ def select_features(df,method = 'corr',select_ratio = 0.75):
         df_selected = df.drop(correlated_features,axis=1)
         return df_selected
     
+<<<<<<< HEAD
     select_ratio = 0.7
+=======
+    select_ratio = 0.6
+>>>>>>> 969e9cc14ca4ac1178a05109eb22311f316e1805
 
     if method  == 'pca':
         k = len(df.columns)*select_ratio
