@@ -11,12 +11,15 @@ import numpy as np
 import pandas as pd  
 from sklearn.metrics import mean_absolute_error 
 from sklearn.model_selection import KFold, TimeSeriesSplit  
+
+from catboost import CatBoostRegressor, EShapCalcType, EFeaturesSelectionAlgorithm
+
 warnings.filterwarnings("ignore")
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 #--------------------------#
 # 计算调试开关
-is_offline = False 
+is_offline = True 
 #--------------------------#
 
 is_train = True  
@@ -32,14 +35,27 @@ logger = logging.getLogger('mylogger')
 if is_offline:
     data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
 else:
-    # data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
-    data_path = r'/kaggle/input/optiver-trading-at-the-close'
+    data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
+    # data_path = r'/kaggle/input/optiver-trading-at-the-close'
 path_train  = data_path+  '/train.csv'
-train_df = pd.read_csv(path_train)
-df = train_df.dropna(subset=["target"])
+df_train = pd.read_csv(path_train)
+
+#  生成股票的子预测
+df_lst = []
+for (stock_id, date_id), frame in (df_train.groupby(["stock_id", "date_id"])):
+    frame["stock_return"] = np.log(frame["wap"] / frame["wap"].shift(6)).shift(-6) * 10_000
+    frame["index_return"] = frame["stock_return"] - frame["target"]
+    df_lst.append(frame)
+df_train = pd.concat(df_lst).reset_index(drop = True)
+
+df_train = df_train.dropna(subset= ['index_return'])
+print("stocks returns generate finished!.")
+df = df_train.dropna(subset=["target"])
 df.reset_index(drop=True, inplace=True)
 df.shape
 print('Data Loaded!')
+
+
 
 def generate_features(df):
 
@@ -160,13 +176,13 @@ def imbalance_features(df):
         
 
     for col in ['matched_size', 'imbalance_size', 'reference_price', 'imbalance_buy_sell_flag']:
-        for window in [1, 2, 3, 10]:
+        for window in [1, 2, 3, 7]:
             df[f"{col}_shift_{window}"] = df.groupby('stock_id')[col].shift(window)
             df[f"{col}_ret_{window}"] = df.groupby('stock_id')[col].pct_change(window)
     
     # Calculate diff features for specific columns
     for col in ['ask_price', 'bid_price', 'ask_size', 'bid_size', 'market_urgency', 'imbalance_momentum', 'size_imbalance']:
-        for window in [1, 2, 3, 10]:
+        for window in [1, 2, 3, 7]:
             df[f"{col}_diff_{window}"] = df.groupby("stock_id")[col].diff(window)
 
     # V4 
@@ -176,7 +192,7 @@ def imbalance_features(df):
 
     # V5
     for col in ['ask_price', 'bid_price', 'ask_size', 'bid_size', 'market_urgency', 'imbalance_momentum', 'size_imbalance']:
-        for window in [1, 2, 3, 10]:
+        for window in [1, 2, 3, 7]:
             df[f"{col}_diff_{window}"] = df.groupby("stock_id")[col].diff(window)
 
     return df.replace([np.inf, -np.inf], 0)
@@ -190,19 +206,20 @@ def other_features(df):
     return df
 
 def rolling_features(df,):
-    window_size = [2, 3, 5, 10]
+    window_size = [2, 3, 7]
     # F_rolling
     rolling_features = ['bid_size', 'ask_size', 'bid_price', 'ask_price', 'imbalance_size', 'matched_size', 'wap']
 
     for window_size_i in window_size:
         for feature in rolling_features:
-            df[f'{feature}_rolling_std_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).std())
-            df[f'{feature}_rolling_median_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).median())
+            df[f'{feature}_rolling_std_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).std(engine='numba'))
+            df[f'{feature}_rolling_median_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).median(engine='numba'))
+            df[f'{feature}_rolling_mean_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).mean(engine='numba'))
     return df
 
 def relativedelta_features(df):
     # F_expanding calc_relative_delta
-    window_size = [2, 3, 5, 10]
+    window_size = [2, 3, 5, 7]
     rolling_features = ['bid_size', 'ask_size', 'bid_price', 'ask_price', 'imbalance_size', 'matched_size', 'wap']
     for window_size_i in window_size:
         for feature in rolling_features:
@@ -329,10 +346,17 @@ def generate_all_features(df):
     df = df[cols]
     # Generate imbalance features
     df = imbalance_features(df)
+    df = reduce_mem_usage(df)
+
     df = other_features(df)
+    df = reduce_mem_usage(df)
+
     df = rolling_features(df)
+    df = reduce_mem_usage(df)
+
     df = relativedelta_features(df)
-    df = add_TA_features(df)
+    df = reduce_mem_usage(df)
+    # df = add_TA_features(df)
     gc.collect()  
     feature_name = [i for i in df.columns if i not in ["row_id", "target", "time_id", "date_id"]]
     return df[feature_name]
@@ -360,11 +384,7 @@ def select_features(df,method = 'corr',select_ratio = 0.75):
         df_selected = df.drop(correlated_features,axis=1)
         return df_selected
     
-<<<<<<< HEAD
-    select_ratio = 0.7
-=======
-    select_ratio = 0.6
->>>>>>> 969e9cc14ca4ac1178a05109eb22311f316e1805
+    select_ratio = 0.64
 
     if method  == 'pca':
         k = len(df.columns)*select_ratio
@@ -380,7 +400,7 @@ def select_features(df,method = 'corr',select_ratio = 0.75):
         return df
 print('Feature function Loaded!')
 
-weights = [
+weights = np.array([
     0.004, 0.001, 0.002, 0.006, 0.004, 0.004, 0.002, 0.006, 0.006, 0.002, 0.002, 0.008,
     0.006, 0.002, 0.008, 0.006, 0.002, 0.006, 0.004, 0.002, 0.004, 0.001, 0.006, 0.004,
     0.002, 0.002, 0.004, 0.002, 0.004, 0.004, 0.001, 0.001, 0.002, 0.002, 0.006, 0.004,
@@ -398,7 +418,7 @@ weights = [
     0.04 , 0.002, 0.002, 0.004, 0.002, 0.002, 0.006, 0.02 , 0.004, 0.002, 0.006, 0.02,
     0.001, 0.002, 0.006, 0.004, 0.006, 0.004, 0.004, 0.004, 0.004, 0.002, 0.004, 0.04,
     0.002, 0.008, 0.002, 0.004, 0.001, 0.004, 0.006, 0.004,
-]
+])
 
 weights = {int(k):v for k,v in enumerate(weights)}
 
@@ -465,53 +485,58 @@ model_dict_list = [
     #     ]
     # },
 
-        {
-        'model': lgb.LGBMRegressor,
-        'name': 'lgb',
-        "params":{
-        "objective": "mae",
-        "n_estimators": 6000,
-        "num_leaves": 256,
-        "subsample": 0.6,
-        "colsample_bytree": 0.8,
-        "learning_rate": 0.00871,
-        'max_depth': 11,
-        "n_jobs": 8,
-        "device": "cuda",
-        "verbosity": 1,
-        "importance_type": "gain",
-        "min_child_samples": 15,  # Minimum number of data points in a leaf
-        "reg_alpha": 0.1,  # L1 regularization term
-        "reg_lambda": 0.3,  # L2 regularization term
-        "min_split_gain": 0.2,  # Minimum loss reduction required for further partitioning
-        "min_child_weight": 0.001,  # Minimum sum of instance weight (hessian) in a leaf
-        "bagging_fraction": 0.9,  # Fraction of data to be used for training each tree
-        "bagging_freq": 5,  # Frequency for bagging
-        "feature_fraction": 0.9,  # Fraction of features to be used for training each tree
-        "num_threads": 4,  # Number of threads for LightGBM to use
-        }
-        ,
-        "callbacks": [
-        lgb.callback.early_stopping(stopping_rounds=100),
-        lgb.callback.log_evaluation(period=100),
-        ]
-    },
-
-    # {
-    # 'model': cbt.CatBoostRegressor,
-    # 'name':'cat',
-    # 'params': {
-    #         'objective': 'RMSE',
-    #         'iterations': 6000,
-    #         "learning_rate": 0.025,
-    #         "verbose": 1,
-    #         'early_stopping_rounds': 100,
-    #         'task_type':"GPU",
-    #         'depth':12,
+    #     {
+    #     'model': lgb.LGBMRegressor,
+    #     'name': 'lgb',
+    #     "params":{
+    #     "objective": "mae",
+    #     "n_estimators": 6000,
+    #     "num_leaves": 256,
+    #     "subsample": 0.6,
+    #     "colsample_bytree": 0.8,
+    #     "learning_rate": 0.00871,
+    #     'max_depth': 11,
+    #     "n_jobs": 8,
+    #     "device": "cuda",
+    #     "verbosity": 1,
+    #     "importance_type": "gain",
+    #     "min_child_samples": 15,  # Minimum number of data points in a leaf
+    #     "reg_alpha": 0.1,  # L1 regularization term
+    #     "reg_lambda": 0.3,  # L2 regularization term
+    #     "min_split_gain": 0.2,  # Minimum loss reduction required for further partitioning
+    #     "min_child_weight": 0.001,  # Minimum sum of instance weight (hessian) in a leaf
+    #     "bagging_fraction": 0.9,  # Fraction of data to be used for training each tree
+    #     "bagging_freq": 5,  # Frequency for bagging
+    #     "feature_fraction": 0.9,  # Fraction of features to be used for training each tree
+    #     "num_threads": 4,  # Number of threads for LightGBM to use
+    #     }
+    #     ,
+    #     "callbacks": [
+    #     lgb.callback.early_stopping(stopping_rounds=100),
+    #     lgb.callback.log_evaluation(period=100),
+    #     ]
     # },
-    # "callbacks":[
-    # ],
-    # }
+
+
+    {
+        'model': cbt.CatBoostRegressor,
+        'name': 'cat',
+        'params': dict(iterations=2000,
+                       learning_rate=0.05,
+                       depth=12,
+                       l2_leaf_reg=30,
+                       bootstrap_type='Bernoulli',
+                       subsample=0.66,
+                       loss_function='MAE',
+                       eval_metric='MAE',
+                       metric_period=100,
+                       od_type='Iter',
+                       od_wait=30,
+                       task_type='GPU',
+                       allow_writing_files=False
+                       ),
+        'callbacks': []
+    }
 ]
 print('Params Loaded!')
 
@@ -524,6 +549,12 @@ def zero_sum(prices, volumes):
     out = prices-std_error*step 
     return out
 
+
+'''
+pd.Series((X@weights) - y)
+现在可能需要区分预测，让后分别提交
+'''
+
 print('Now,we are going to training!~')
 for model_dict in model_dict_list:
 
@@ -535,11 +566,12 @@ for model_dict in model_dict_list:
     if is_train:
         feature_name = list(df_train_feats.columns)
         print(f"Feature length = {len(feature_name)}")
+        stock_id_arr = df.stock_id.values
         offline_split = df_train['date_id']>(split_day - 45)
         df_offline_train = df_train_feats[~offline_split].copy(deep = True)
         df_offline_valid = df_train_feats[offline_split].copy(deep = True)
-        df_offline_train_target = df_train['target'][~offline_split].copy(deep = True)
-        df_offline_valid_target = df_train['target'][offline_split].copy(deep = True)
+        df_offline_train_target = df_train['stock_return'][~offline_split].copy(deep = True)
+        df_offline_valid_target = df_train['stock_return'][offline_split].copy(deep = True)
 
         print("Valid Model Trainning.")
         _model = model_(**model_params)
@@ -547,9 +579,26 @@ for model_dict in model_dict_list:
             _model.fit(
                 df_offline_train[feature_name],
                 df_offline_train_target,
-                eval_set=[(df_offline_valid[feature_name], df_offline_valid_target)],
+                eval_set=[( df_offline_valid[feature_name], df_offline_valid_target)],
                 callbacks = call_back_func 
             )
+        elif name == 'cat':
+                summary = _model.select_features(
+                            df_offline_train[feature_name], df_offline_train_target,
+                            eval_set=[(df_offline_valid[feature_name], df_offline_valid_target)],
+                            features_for_select=feature_name,
+                            num_features_to_select=len(feature_name)-24,    # Dropping from 124 to 100
+                            steps=3,
+                            algorithm=EFeaturesSelectionAlgorithm.RecursiveByShapValues,
+                            shap_calc_type=EShapCalcType.Regular,
+                            train_final_model=False,
+                            plot=True,
+                        )
+                _model.fit(
+                        df_offline_train[summary['selected_features_names']], df_offline_train_target,
+                        eval_set=[(df_offline_valid[summary['selected_features_names']], df_offline_valid_target)],
+                        use_best_model=True,
+                    )
         else:
             _model.fit(
                 df_offline_train[feature_name],
@@ -561,31 +610,39 @@ for model_dict in model_dict_list:
         gc.collect()
 
         # infer
-        df_train_target = df_train["target"]
+        df_train_target = df_train['stock_return']
         print("Infer Model Trainning.")
         infer_params = model_params.copy()
         best_iter_n = _model.best_iteration_ if hasattr(_model, "best_iteration_") else _model.best_iteration
         infer_params["n_estimators"] = int(1.2 * best_iter_n)
         infer__model =  model_(**model_params)
         if name == 'lgb':
-            infer__model.fit(df_train_feats[feature_name], df_train_target,
-                            eval_set=[(df_offline_valid[feature_name], df_offline_valid_target)],
-                                        callbacks = call_back_func 
+            infer__model.fit(df_train_feats[feature_name],
+                            df_train_target,
+                            eval_set=[(df_offline_valid[feature_name],
+                            df_offline_valid_target)],
+                            callbacks = call_back_func 
                             )
+        elif name == 'cat':
+            infer__model.fit(df_train_feats[summary['selected_features_names']], df_train_target)
         else:
-            infer__model.fit(df_train_feats[feature_name], df_train_target,
-                            eval_set=[(df_offline_valid[feature_name], df_offline_valid_target)],
+            infer__model.fit(df_train_feats[feature_name],
+                            df_train_target,
+                            eval_set=[(df_offline_valid[feature_name],
+                            df_offline_valid_target)],
                             )
 
         if is_offline:   
             # offline predictions
-            df_valid_target = df_valid["target"]
+            df_valid_target = df_valid['stock_return']
+            apd_index  = df_valid['index_return']
             offline_predictions = infer__model.predict(df_valid_feats[feature_name])
-            offline_score = mean_absolute_error(offline_predictions, df_valid_target)
+            weighted_ = df_valid.stock_id.map(weights).values
+            offline_score = mean_absolute_error(offline_predictions*weighted_, df_valid_target)
             print(f"Offline Score {np.round(offline_score, 4)}")
 
-
-    if is_infer:
+print('Model Training Finished,now we are going to predict......')
+if is_infer:
         import optiver2023
         env = optiver2023.make_env()
         iter_test = env.iter_test()
@@ -599,7 +656,10 @@ for model_dict in model_dict_list:
             if counter > 0:
                 cache = cache.groupby(['stock_id']).tail(21).sort_values(by=['date_id', 'seconds_in_bucket', 'stock_id']).reset_index(drop=True)
             feat = generate_all_features(cache)[-len(test):]
+            
             if target_col.__len__() >0:
+                feat['stock_return'] = np.nan
+                feat['index_return'] = np.nan
                 feat = feat[target_col]
             lgb_prediction = infer__model.predict(feat)
             lgb_prediction = zero_sum(lgb_prediction, test['bid_size'] + test['ask_size'])
@@ -613,4 +673,3 @@ for model_dict in model_dict_list:
             
         time_cost = 1.146 * np.mean(qps)
         print(f"The code will take approximately {np.round(time_cost, 4)} hours to reason about")
-6
