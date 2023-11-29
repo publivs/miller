@@ -41,12 +41,8 @@ path_train  = data_path+  '/train.csv'
 df_train = pd.read_csv(path_train)
 
 #  生成股票的子预测
-df_lst = []
-for (stock_id, date_id), frame in (df_train.groupby(["stock_id", "date_id"])):
-    frame["stock_return"] = np.log(frame["wap"] / frame["wap"].shift(6)).shift(-6) * 10_000
-    frame["index_return"] = frame["stock_return"] - frame["target"]
-    df_lst.append(frame)
-df_train = pd.concat(df_lst).reset_index(drop = True)
+df_train["stock_return"] = np.log(df_train.groupby(["stock_id", "date_id"])["wap"].transform(lambda x: x / x.shift(6))).shift(-6) * 10_000
+df_train['index_return']=df_train["stock_return"] - df_train["target"]
 
 df_train = df_train.dropna(subset= ['index_return'])
 print("stocks returns generate finished!.")
