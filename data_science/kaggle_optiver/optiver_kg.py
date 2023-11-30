@@ -1,3 +1,4 @@
+# %%
 import gc  
 import os  
 import time  
@@ -7,16 +8,18 @@ from warnings import simplefilter
 import joblib  
 import lightgbm as lgb  
 import catboost as cbt 
+from numba import njit, prange
 import numpy as np  
 import pandas as pd  
 from sklearn.metrics import mean_absolute_error 
 from sklearn.model_selection import KFold, TimeSeriesSplit  
-
 from catboost import CatBoostRegressor, EShapCalcType, EFeaturesSelectionAlgorithm
-
 warnings.filterwarnings("ignore")
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
+import logging
+logger = logging.getLogger('mylogger')
+# %%
 #--------------------------#
 # 计算调试开关
 is_offline = True 
@@ -27,20 +30,47 @@ is_infer = True
 max_lookback = np.nan 
 split_day = 435 
 lgb_accelerator = 'cuda' if is_offline else 'gpu'
+model_target_col = 'target'
 
-import logging
+weights = np.array([
+    0.004, 0.001, 0.002, 0.006, 0.004, 0.004, 0.002, 0.006, 0.006, 0.002, 0.002, 0.008,
+    0.006, 0.002, 0.008, 0.006, 0.002, 0.006, 0.004, 0.002, 0.004, 0.001, 0.006, 0.004,
+    0.002, 0.002, 0.004, 0.002, 0.004, 0.004, 0.001, 0.001, 0.002, 0.002, 0.006, 0.004,
+    0.004, 0.004, 0.006, 0.002, 0.002, 0.04 , 0.002, 0.002, 0.004, 0.04 , 0.002, 0.001,
+    0.006, 0.004, 0.004, 0.006, 0.001, 0.004, 0.004, 0.002, 0.006, 0.004, 0.006, 0.004,
+    0.006, 0.004, 0.002, 0.001, 0.002, 0.004, 0.002, 0.008, 0.004, 0.004, 0.002, 0.004,
+    0.006, 0.002, 0.004, 0.004, 0.002, 0.004, 0.004, 0.004, 0.001, 0.002, 0.002, 0.008,
+    0.02 , 0.004, 0.006, 0.002, 0.02 , 0.002, 0.002, 0.006, 0.004, 0.002, 0.001, 0.02,
+    0.006, 0.001, 0.002, 0.004, 0.001, 0.002, 0.006, 0.006, 0.004, 0.006, 0.001, 0.002,
+    0.004, 0.006, 0.006, 0.001, 0.04 , 0.006, 0.002, 0.004, 0.002, 0.002, 0.006, 0.002,
+    0.002, 0.004, 0.006, 0.006, 0.002, 0.002, 0.008, 0.006, 0.004, 0.002, 0.006, 0.002,
+    0.004, 0.006, 0.002, 0.004, 0.001, 0.004, 0.002, 0.004, 0.008, 0.006, 0.008, 0.002,
+    0.004, 0.002, 0.001, 0.004, 0.004, 0.004, 0.006, 0.008, 0.004, 0.001, 0.001, 0.002,
+    0.006, 0.004, 0.001, 0.002, 0.006, 0.004, 0.006, 0.008, 0.002, 0.002, 0.004, 0.002,
+    0.04 , 0.002, 0.002, 0.004, 0.002, 0.002, 0.006, 0.02 , 0.004, 0.002, 0.006, 0.02,
+    0.001, 0.002, 0.006, 0.004, 0.006, 0.004, 0.004, 0.004, 0.004, 0.002, 0.004, 0.04,
+    0.002, 0.008, 0.002, 0.004, 0.001, 0.004, 0.006, 0.004,
+])
 
-logger = logging.getLogger('mylogger')
+weights = {int(k):v for k,v in enumerate(weights)}
+
+
+
 
 if is_offline:
     data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
 else:
-    data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
-    # data_path = r'/kaggle/input/optiver-trading-at-the-close'
+    # data_path =r'/usr/src/kaggle_/optiver-trading-at-the-close'
+    data_path = r'/kaggle/input/optiver-trading-at-the-close'
 path_train  = data_path+  '/train.csv'
 df_train = pd.read_csv(path_train)
 
 #  生成股票的子预测
+import numba as nb
+from numba import prange
+
+
+
 df_train["stock_return"] = np.log(df_train.groupby(["stock_id", "date_id"])["wap"].transform(lambda x: x / x.shift(6))).shift(-6) * 10_000
 df_train['index_return']=df_train["stock_return"] - df_train["target"]
 
@@ -52,6 +82,8 @@ df.shape
 print('Data Loaded!')
 
 
+
+# %%
 
 def generate_features(df):
 
@@ -115,7 +147,7 @@ def reduce_mem_usage(df, verbose=0):
         logger.info(f"Decreased by {decrease:.2f}%")
     return df
 
-from numba import njit, prange
+
 @njit(parallel=True)
 def compute_triplet_imbalance(df_values, comb_indices):
     num_rows = df_values.shape[0]
@@ -202,7 +234,7 @@ def other_features(df):
     return df
 
 def rolling_features(df,):
-    window_size = [2, 3, 7]
+    window_size = [2, 3, 5, 7]
     # F_rolling
     rolling_features = ['bid_size', 'ask_size', 'bid_price', 'ask_price', 'imbalance_size', 'matched_size', 'wap']
 
@@ -210,7 +242,6 @@ def rolling_features(df,):
         for feature in rolling_features:
             df[f'{feature}_rolling_std_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).std(engine='numba'))
             df[f'{feature}_rolling_median_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).median(engine='numba'))
-            df[f'{feature}_rolling_mean_{window_size_i}'] = df.groupby('stock_id')[feature].transform(lambda x: x.rolling(window=window_size_i, min_periods=1).mean(engine='numba'))
     return df
 
 def relativedelta_features(df):
@@ -303,22 +334,26 @@ def add_TA_features(df):
     
     prices = ["reference_price", "far_price", "near_price", "ask_price", "bid_price", "wap"]
     
+    result_lst = []
     for stock_id, values in df.groupby(['stock_id'])[prices]:
+        new_df = pd.DataFrame()
+        new_df.index = values.index
+
         # RSI
         col_rsi = [f'rsi_{col}' for col in values.columns]
         rsi_values = calculate_rsi(values.values)
-        df.loc[values.index, col_rsi] = rsi_values
+        new_df[col_rsi] = rsi_values
         gc.collect()
-        
+
         # MACD
         macd_values, signal_line_values, histogram_values = calculate_macd(values.values)
         col_macd = [f'macd_{col}' for col in values.columns]
         col_signal = [f'macd_sig_{col}' for col in values.columns]
         col_hist = [f'macd_hist_{col}' for col in values.columns]
         
-        df.loc[values.index, col_macd] = macd_values
-        df.loc[values.index, col_signal] = signal_line_values
-        df.loc[values.index, col_hist] = histogram_values
+        new_df[col_macd] = macd_values
+        new_df[col_signal] = signal_line_values
+        new_df[col_hist] = histogram_values
         gc.collect()
         
         # Bollinger Bands
@@ -327,13 +362,14 @@ def add_TA_features(df):
         col_bband_mid = [f'bband_mid_{col}' for col in values.columns]
         col_bband_lower = [f'bband_lower_{col}' for col in values.columns]
         
-        df.loc[values.index, col_bband_upper] = bband_upper_values
-        df.loc[values.index, col_bband_mid] = bband_mid_values
-        df.loc[values.index, col_bband_lower] = bband_lower_values
+        new_df[col_bband_upper] = bband_upper_values
+        new_df[col_bband_mid] = bband_mid_values
+        new_df[col_bband_lower] = bband_lower_values
+        result_lst.append(new_df)
         gc.collect()
-    
-    return df
-
+    ta_index_df = pd.concat(result_lst).sort_index()
+    res_df = pd.merge(ta_index_df,df, left_index=True, right_index=True)
+    return res_df
 
 
 def generate_all_features(df):
@@ -352,7 +388,7 @@ def generate_all_features(df):
 
     df = relativedelta_features(df)
     df = reduce_mem_usage(df)
-    # df = add_TA_features(df)
+    df = add_TA_features(df)
     gc.collect()  
     feature_name = [i for i in df.columns if i not in ["row_id", "target", "time_id", "date_id"]]
     return df[feature_name]
@@ -380,8 +416,6 @@ def select_features(df,method = 'corr',select_ratio = 0.75):
         df_selected = df.drop(correlated_features,axis=1)
         return df_selected
     
-    select_ratio = 0.64
-
     if method  == 'pca':
         k = len(df.columns)*select_ratio
         df = pca_feature_selection(df, k)
@@ -396,27 +430,8 @@ def select_features(df,method = 'corr',select_ratio = 0.75):
         return df
 print('Feature function Loaded!')
 
-weights = np.array([
-    0.004, 0.001, 0.002, 0.006, 0.004, 0.004, 0.002, 0.006, 0.006, 0.002, 0.002, 0.008,
-    0.006, 0.002, 0.008, 0.006, 0.002, 0.006, 0.004, 0.002, 0.004, 0.001, 0.006, 0.004,
-    0.002, 0.002, 0.004, 0.002, 0.004, 0.004, 0.001, 0.001, 0.002, 0.002, 0.006, 0.004,
-    0.004, 0.004, 0.006, 0.002, 0.002, 0.04 , 0.002, 0.002, 0.004, 0.04 , 0.002, 0.001,
-    0.006, 0.004, 0.004, 0.006, 0.001, 0.004, 0.004, 0.002, 0.006, 0.004, 0.006, 0.004,
-    0.006, 0.004, 0.002, 0.001, 0.002, 0.004, 0.002, 0.008, 0.004, 0.004, 0.002, 0.004,
-    0.006, 0.002, 0.004, 0.004, 0.002, 0.004, 0.004, 0.004, 0.001, 0.002, 0.002, 0.008,
-    0.02 , 0.004, 0.006, 0.002, 0.02 , 0.002, 0.002, 0.006, 0.004, 0.002, 0.001, 0.02,
-    0.006, 0.001, 0.002, 0.004, 0.001, 0.002, 0.006, 0.006, 0.004, 0.006, 0.001, 0.002,
-    0.004, 0.006, 0.006, 0.001, 0.04 , 0.006, 0.002, 0.004, 0.002, 0.002, 0.006, 0.002,
-    0.002, 0.004, 0.006, 0.006, 0.002, 0.002, 0.008, 0.006, 0.004, 0.002, 0.006, 0.002,
-    0.004, 0.006, 0.002, 0.004, 0.001, 0.004, 0.002, 0.004, 0.008, 0.006, 0.008, 0.002,
-    0.004, 0.002, 0.001, 0.004, 0.004, 0.004, 0.006, 0.008, 0.004, 0.001, 0.001, 0.002,
-    0.006, 0.004, 0.001, 0.002, 0.006, 0.004, 0.006, 0.008, 0.002, 0.002, 0.004, 0.002,
-    0.04 , 0.002, 0.002, 0.004, 0.002, 0.002, 0.006, 0.02 , 0.004, 0.002, 0.006, 0.02,
-    0.001, 0.002, 0.006, 0.004, 0.006, 0.004, 0.004, 0.004, 0.004, 0.002, 0.004, 0.04,
-    0.002, 0.008, 0.002, 0.004, 0.001, 0.004, 0.006, 0.004,
-])
 
-weights = {int(k):v for k,v in enumerate(weights)}
+# %%
 
 if is_offline:
     df_train = df[df["date_id"] <= split_day]
@@ -429,12 +444,12 @@ else:
 
 if is_train:
     global_stock_id_feats = {
-        "median_size": df_train.groupby("stock_id")["bid_size"].median() + df_train.groupby("stock_id")["ask_size"].median(),
-        "std_size": df_train.groupby("stock_id")["bid_size"].std() + df_train.groupby("stock_id")["ask_size"].std(),
-        "ptp_size": df_train.groupby("stock_id")["bid_size"].max() - df_train.groupby("stock_id")["bid_size"].min(),
-        "median_price": df_train.groupby("stock_id")["bid_price"].median() + df_train.groupby("stock_id")["ask_price"].median(),
-        "std_price": df_train.groupby("stock_id")["bid_price"].std() + df_train.groupby("stock_id")["ask_price"].std(),
-        "ptp_price": df_train.groupby("stock_id")["bid_price"].max() - df_train.groupby("stock_id")["ask_price"].min(),
+        "median_size": df_train.groupby("stock_id")["bid_size"].median( ) + df_train.groupby("stock_id")["ask_size"].median( ),
+        "std_size": df_train.groupby("stock_id")["bid_size"].std( ) + df_train.groupby("stock_id")["ask_size"].std( ),
+        "ptp_size": df_train.groupby("stock_id")["bid_size"].max( ) - df_train.groupby("stock_id")["bid_size"].min( ),
+        "median_price": df_train.groupby("stock_id")["bid_price"].median( ) + df_train.groupby("stock_id")["ask_price"].median( ),
+        "std_price": df_train.groupby("stock_id")["bid_price"].std( ) + df_train.groupby("stock_id")["ask_price"].std( ),
+        "ptp_price": df_train.groupby("stock_id")["bid_price"].max( ) - df_train.groupby("stock_id")["ask_price"].min( ),
     }
     if is_offline:
         df_train_feats = generate_all_features(df_train)
@@ -458,28 +473,29 @@ if is_train:
 
 print('Processing of all features in the dataframe (df) is completed!')
 
+# %%
 model_dict_list = [
-    #             {
-    #     'model': lgb.LGBMRegressor,
-    #     'name': 'lgb',
-    #     "params":{
-    #     "objective": "mae",
-    #     "n_estimators": 6000,
-    #     "num_leaves": 256,
-    #     "subsample": 0.6,
-    #     "colsample_bytree": 0.8,
-    #     "learning_rate": 0.00871,
-    #     'max_depth': 11,
-    #     "n_jobs": 4,
-    #     "device": "cuda",
-    #     "verbosity": 1,
-    #     "importance_type": "gain",}
-    #     ,
-    #     "callbacks": [
-    #     lgb.callback.early_stopping(stopping_rounds=100),
-    #     lgb.callback.log_evaluation(period=100),
-    #     ]
-    # },
+                {
+        'model': lgb.LGBMRegressor,
+        'name': 'lgb',
+        "params":{
+        "objective": "mae",
+        "n_estimators": 6000,
+        "num_leaves": 256,
+        "subsample": 0.6,
+        "colsample_bytree": 0.8,
+        "learning_rate": 0.00871,
+        'max_depth': 11,
+        "n_jobs": 4,
+        "device": "cuda",
+        "verbosity": 1,
+        "importance_type": "gain",}
+        ,
+        "callbacks": [
+        lgb.callback.early_stopping(stopping_rounds=100),
+        lgb.callback.log_evaluation(period=100),
+        ]
+    },
 
     #     {
     #     'model': lgb.LGBMRegressor,
@@ -514,44 +530,44 @@ model_dict_list = [
     # },
 
 
-    {
-        'model': cbt.CatBoostRegressor,
-        'name': 'cat',
-        'params': dict(iterations=2000,
-                       learning_rate=0.05,
-                       depth=12,
-                       l2_leaf_reg=30,
-                       bootstrap_type='Bernoulli',
-                       subsample=0.66,
-                       loss_function='MAE',
-                       eval_metric='MAE',
-                       metric_period=100,
-                       od_type='Iter',
-                       od_wait=30,
-                       task_type='GPU',
-                       allow_writing_files=False
-                       ),
-        'callbacks': []
-    }
+    # {
+    #     'model': cbt.CatBoostRegressor,
+    #     'name': 'cat',
+    #     'params': dict(iterations=2000,
+    #                    learning_rate=0.05,
+    #                    depth=12,
+    #                    l2_leaf_reg=30,
+    #                    bootstrap_type='Bernoulli',
+    #                    subsample=0.66,
+    #                    loss_function='MAE',
+    #                    eval_metric='MAE',
+    #                    metric_period=100,
+    #                    od_type='Iter',
+    #                    od_wait=30,
+    #                    task_type='GPU',
+    #                    allow_writing_files=False
+    #                    ),
+    #     'callbacks': []
+    # }
 ]
 print('Params Loaded!')
 
+
+# %%
 feature_name = list(df_train_feats.columns)
 print(f"Feature length = {len(feature_name)}")
 
+# %%
 def zero_sum(prices, volumes):
     std_error = np.sqrt(volumes)
     step = np.sum(prices)/np.sum(std_error)
     out = prices-std_error*step 
     return out
 
-
-'''
-pd.Series((X@weights) - y)
-现在可能需要区分预测，让后分别提交
-'''
-
+# %%
 print('Now,we are going to training!~')
+
+# %%
 for model_dict in model_dict_list:
 
     name = model_dict['name']
@@ -566,8 +582,8 @@ for model_dict in model_dict_list:
         offline_split = df_train['date_id']>(split_day - 45)
         df_offline_train = df_train_feats[~offline_split].copy(deep = True)
         df_offline_valid = df_train_feats[offline_split].copy(deep = True)
-        df_offline_train_target = df_train['stock_return'][~offline_split].copy(deep = True)
-        df_offline_valid_target = df_train['stock_return'][offline_split].copy(deep = True)
+        df_offline_train_target = df_train[model_target_col][~offline_split].copy(deep = True)
+        df_offline_valid_target = df_train[model_target_col][offline_split].copy(deep = True)
 
         print("Valid Model Trainning.")
         _model = model_(**model_params)
@@ -588,7 +604,7 @@ for model_dict in model_dict_list:
                             algorithm=EFeaturesSelectionAlgorithm.RecursiveByShapValues,
                             shap_calc_type=EShapCalcType.Regular,
                             train_final_model=False,
-                            plot=True,
+                            # plot=True,
                         )
                 _model.fit(
                         df_offline_train[summary['selected_features_names']], df_offline_train_target,
@@ -606,7 +622,7 @@ for model_dict in model_dict_list:
         gc.collect()
 
         # infer
-        df_train_target = df_train['stock_return']
+        df_train_target = df_train[model_target_col]
         print("Infer Model Trainning.")
         infer_params = model_params.copy()
         best_iter_n = _model.best_iteration_ if hasattr(_model, "best_iteration_") else _model.best_iteration
@@ -630,13 +646,16 @@ for model_dict in model_dict_list:
 
         if is_offline:   
             # offline predictions
-            df_valid_target = df_valid['stock_return']
+            df_valid_target = df_valid[model_target_col]
             apd_index  = df_valid['index_return']
             offline_predictions = infer__model.predict(df_valid_feats[feature_name])
-            weighted_ = df_valid.stock_id.map(weights).values
-            offline_score = mean_absolute_error(offline_predictions*weighted_, df_valid_target)
+            if model_target_col == 'stock_return':
+                weighted_ = df_valid.stock_id.map(weights).values
+                offline_predictions = offline_predictions*weighted_
+            offline_score = mean_absolute_error(offline_predictions, df_valid_target)
             print(f"Offline Score {np.round(offline_score, 4)}")
 
+# %%
 print('Model Training Finished,now we are going to predict......')
 if is_infer:
         import optiver2023
@@ -654,10 +673,14 @@ if is_infer:
             feat = generate_all_features(cache)[-len(test):]
             
             if target_col.__len__() >0:
-                feat['stock_return'] = np.nan
+                feat['target'] = np.nan
                 feat['index_return'] = np.nan
+                feat['stock_return'] = np.nan
                 feat = feat[target_col]
             lgb_prediction = infer__model.predict(feat)
+            if model_target_col == 'stock_return':
+                weighted_ = df_valid.stock_id.map(weights).values
+                offline_predictions = offline_predictions*weighted_
             lgb_prediction = zero_sum(lgb_prediction, test['bid_size'] + test['ask_size'])
             clipped_predictions = np.clip(lgb_prediction, y_min, y_max)
             sample_prediction['target'] = clipped_predictions
@@ -669,3 +692,5 @@ if is_infer:
             
         time_cost = 1.146 * np.mean(qps)
         print(f"The code will take approximately {np.round(time_cost, 4)} hours to reason about")
+
+
