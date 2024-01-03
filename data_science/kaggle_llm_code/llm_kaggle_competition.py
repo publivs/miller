@@ -130,8 +130,7 @@ vectorizer = TfidfVectorizer(ngram_range=(3, 5), lowercase=False, sublinear_tf=T
                             analyzer = 'word',
                             tokenizer = dummy,
                             preprocessor = dummy,
-                            token_pattern = None, strip_accents='unicode'
-                            )
+                            token_pattern = None, strip_accents='unicode')
 
 tf_train = vectorizer.fit_transform(tokenized_texts_train)
 tf_test = vectorizer.transform(tokenized_texts_test)
@@ -147,7 +146,6 @@ print(tf_train.shape)
 
 bayes_model = MultinomialNB(alpha=0.02)
 sgd_model = SGDClassifier(max_iter=8000, tol=1e-4, loss="modified_huber")
-
 
 ensemble = VotingClassifier(estimators=[('sgd', sgd_model), ('nb', bayes_model)],
                             weights=[0.7, 0.3], voting='soft', n_jobs=-1)

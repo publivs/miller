@@ -9,6 +9,7 @@ from chenqian_tools.hdf_helper import *
 
 data_path = r'''D:\amex-default-prediction'''
 file_name = r'train_labes.csv'
+
 # target_path = r'''D:\amex-default-prediction\train_data.h5'''
 path_lst = os.listdir(data_path)
 for path_i in path_lst:
