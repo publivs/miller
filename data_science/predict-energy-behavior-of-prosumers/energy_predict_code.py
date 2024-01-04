@@ -8,10 +8,11 @@ import gc
 import pickle
 import holidays
 import datetime
-import cudf 
+import cudf
 import numpy as np
-import cupy as np
+import cupy as cp
 import pandas as pd
+
 import polars as pl
 import plotly.express as px
 
@@ -20,6 +21,23 @@ import lightgbm as lgb
 
 OFFLINE = True
 accelerator = 'cuda' if OFFLINE else 'gpu' 
+
+def cupy_ewma(data, window):
+    alpha = 2 / (window + 1.0)
+    alpha_rev = 1 - alpha
+    n = data.shape[0]
+
+    pows = alpha_rev**(cp.arange(n + 1))
+
+    scale_arr = 1 / pows[:-1]
+    offset = data[0] * pows[1:]
+    pw0 = alpha * alpha_rev**(n - 1)
+
+    mult = data * pw0 * scale_arr
+    cumsums = mult.cumsum()
+    out = offset + cumsums * scale_arr[::-1]
+    return out
+
 
 # %%
 class DataStorage:
@@ -37,6 +55,7 @@ class DataStorage:
         "datetime",
         "row_id",
     ]
+
     client_cols = [
         "product_type",
         "county",
@@ -219,7 +238,7 @@ class FeaturesGenerator:
         df_features['weekday'] = df_features['datetime'].dt.weekday
         df_features['month'] = df_features['datetime'].dt.month
         df_features['year'] = df_features['datetime'].dt.year
-        df_features['country_holidays'] = cudf.Series(np.where(df_features['datetime'].dt.strftime("%Y-%m-%d").isin(self.estonian_holidays), 1, 0))
+        df_features['country_holidays'] = cudf.Series(cp.where(df_features['datetime'].dt.strftime("%Y-%m-%d").isin(self.estonian_holidays), 1, 0))
         df_features['segment'] = (df_features['county'].astype(str) + '_' +
                                 df_features['is_business'].astype(str) + '_' +
                                 df_features['product_type'].astype(str) + '_' +
@@ -243,144 +262,150 @@ class FeaturesGenerator:
 
     def _add_forecast_weather_features(self, df_features):
         df_forecast_weather = self.data_storage.df_forecast_weather
-        df_weather_station_to_county_mapping = (
-            self.data_storage.df_weather_station_to_county_mapping
-        )
+        df_weather_station_to_county_mapping = self.data_storage.df_weather_station_to_county_mapping
 
-        df_forecast_weather = (
-            df_forecast_weather.rename({"forecast_datetime": "datetime"})
-            .filter((cudf.col("hours_ahead") >= 22) & cudf.col("hours_ahead") <= 45)
-            .drop("hours_ahead")
-            .with_columns(
-                cudf.col("latitude").cast(cudf.datatypes.Float32),
-                cudf.col("longitude").cast(cudf.datatypes.Float32),
-            )
-            .join(
-                df_weather_station_to_county_mapping,
-                how="left",
-                on=["longitude", "latitude"],
-            )
-            .drop("longitude", "latitude")
-            .with_columns(
-                cudf.col("temperature").ewm_mean(span=150).alias("forecast_temperature_span_150"),
-                cudf.col("dewpoint").ewm_mean(span=150).alias("forecast_dewpoint_span_150"),
-                cudf.col("cloudcover_high").ewm_mean(span=150).alias("forecast_cloudcover_high_span_150"),
-                cudf.col("cloudcover_low").ewm_mean(span=150).alias("forecast_cloudcover_low_span_150"),
-                cudf.col("cloudcover_total").ewm_mean(span=150).alias("forecast_cloudcover_total_span_150"),
-                cudf.col("10_metre_u_wind_component").ewm_mean(span=150).alias("forecast_10_metre_u_wind_component_span_150"),
-                cudf.col("10_metre_v_wind_component").ewm_mean(span=150).alias("forecast_10_metre_v_wind_component_span_150"),
-                cudf.col("direct_solar_radiation").ewm_mean(span=150).alias("forecast_direct_solar_radiation_span_150"),
-                cudf.col("surface_solar_radiation_downwards").ewm_mean(span=150).alias("forecast_surface_solar_radiation_downwards_span_150"),
-                cudf.col("snowfall").ewm_mean(span=150).alias("forecast_snowfall_span_150"),
-                cudf.col("total_precipitation").ewm_mean(span=150).alias("forecast_total_precipitation_span_150"),
-            )
+        # Rename columns and filter
+        df_forecast_weather = df_forecast_weather.rename(columns={"forecast_datetime": "datetime"})
+        # Step 2: Filter rows based on condition
+        df_forecast_weather = df_forecast_weather.loc[(df_forecast_weather.hours_ahead >= 22 )& (df_forecast_weather.hours_ahead >= 45)]
+        # Step 3: Drop the specified column
+        df_forecast_weather = df_forecast_weather.drop(columns = "hours_ahead")
+        # Step 4: Assign new columns with specified data types
+        df_forecast_weather = df_forecast_weather.assign(
+            latitude=df_forecast_weather["latitude"].astype("float32"),
+            longitude=df_forecast_weather["longitude"].astype("float32")
         )
+        # Step 5: Merge with another DataFrame
+        df_forecast_weather = df_forecast_weather.merge(
+            df_weather_station_to_county_mapping,
+            left_on=["longitude", "latitude"],
+            right_on=["longitude", "latitude"],
+            how="left"
+        )
+        # Step 6: Drop specified columns after merge
+        df_forecast_weather = df_forecast_weather.drop(columns = ["longitude", "latitude"])
+
+        # Calculate moving averages
+        df_forecast_weather.assign(
+                    forecast_temperature_span_150 =  cupy_ewma(df_forecast_weather["temperature"], 150),
+                    forecast_dewpoint_span_150=df_forecast_weather["dewpoint"].ewm(span=150).mean(),
+                    forecast_cloudcover_high_span_150=df_forecast_weather["cloudcover_high"].ewm(span=150).mean(),
+                    forecast_cloudcover_low_span_150=df_forecast_weather["cloudcover_low"].ewm(span=150).mean(),
+                    forecast_cloudcover_total_span_150=df_forecast_weather["cloudcover_total"].ewm(span=150).mean(),
+                    forecast_10_metre_u_wind_component_span_150=df_forecast_weather["10_metre_u_wind_component"].ewm(span=150).mean(),
+                    forecast_10_metre_v_wind_component_span_150=df_forecast_weather["10_metre_v_wind_component"].ewm(span=150).mean(),
+                    forecast_direct_solar_radiation_span_150=df_forecast_weather["direct_solar_radiation"].ewm(span=150).mean(),
+                    forecast_surface_solar_radiation_downwards_span_150=df_forecast_weather["surface_solar_radiation_downwards"].ewm(span=150).mean(),
+                    forecast_snowfall_span_150=df_forecast_weather["snowfall"].ewm(span=150).mean(),
+                    forecast_total_precipitation_span_150=df_forecast_weather["total_precipitation"].ewm(span=150).mean()
+                )
+
 
         df_forecast_weather_date = (
-            df_forecast_weather.group_by("datetime").mean().drop("county")
+            df_forecast_weather.groupby("datetime").mean().drop("county")
         )
 
         df_forecast_weather_local = (
-            df_forecast_weather.filter(cudf.col("county").is_not_null())
-            .group_by("county", "datetime")
+            df_forecast_weather.query("county.notna()")
+            .groupby(["county", "datetime"])
             .mean()
         )
 
         for hours_lag in [0, 7 * 24]:
-            df_features = df_features.join(
-                df_forecast_weather_date.with_columns(
-                    cudf.col("datetime") + cudf.duration(hours=hours_lag)
+            df_features = df_features.merge(
+                df_forecast_weather_date.assign(
+                    datetime=df_forecast_weather_date["datetime"] + pd.Timedelta(hours=hours_lag)
                 ),
                 on="datetime",
                 how="left",
-                suffix=f"_forecast_{hours_lag}h",
+                suffixes=("", f"_forecast_{hours_lag}h"),
             )
-            df_features = df_features.join(
-                df_forecast_weather_local.with_columns(
-                    cudf.col("datetime") + cudf.duration(hours=hours_lag)
+            df_features = df_features.merge(
+                df_forecast_weather_local.assign(
+                    datetime=df_forecast_weather_local["datetime"] + pd.Timedelta(hours=hours_lag)
                 ),
                 on=["county", "datetime"],
                 how="left",
-                suffix=f"_forecast_local_{hours_lag}h",
+                suffixes=("", f"_forecast_local_{hours_lag}h"),
             )
 
         return df_features
 
     def _add_historical_weather_features(self, df_features):
-        df_historical_weather = self.data_storage.df_historical_weather
-        df_weather_station_to_county_mapping = (
-            self.data_storage.df_weather_station_to_county_mapping
-        )
-
-        df_historical_weather = (
-            df_historical_weather.with_columns(
-                cudf.col("latitude").cast(cudf.datatypes.Float32),
-                cudf.col("longitude").cast(cudf.datatypes.Float32),
-            )
-            .join(
-                df_weather_station_to_county_mapping,
-                how="left",
-                on=["longitude", "latitude"],
-            )
-            .drop("longitude", "latitude")
-            .with_columns(
-                cudf.col("temperature").ewm_mean(span=150).alias("historical_temperature_span_150"),
-                cudf.col("dewpoint").ewm_mean(span=150).alias("historical_dewpoint_span_150"),
-                cudf.col("cloudcover_high").ewm_mean(span=150).alias("historical_cloudcover_high_span_150"),
-                cudf.col("cloudcover_low").ewm_mean(span=150).alias("historical_cloudcover_low_span_150"),
-                cudf.col("cloudcover_total").ewm_mean(span=150).alias("historical_cloudcover_total_span_150"),
-                cudf.col("windspeed_10m").ewm_mean(span=150).alias("historical_windspeed_10m_span_150"),
-                cudf.col("winddirection_10m").ewm_mean(span=150).alias("historical_winddirection_10m_span_150"),
-                cudf.col("direct_solar_radiation").ewm_mean(span=150).alias("historical_direct_solar_radiation_span_150"),
-                cudf.col("shortwave_radiation").ewm_mean(span=150).alias("historical_shortwave_radiation_span_150"),
-                cudf.col("snowfall").ewm_mean(span=150).alias("historical_snowfall_span_150"),
-                cudf.col("diffuse_radiation").ewm_mean(span=150).alias("historical_diffuse_radiation_span_150"),
-                cudf.col("surface_pressure").ewm_mean(span=150).alias("historical_surface_pressure_span_150"),
-            )
-        )
-
-        df_historical_weather_date = (
-            df_historical_weather.group_by("datetime").mean().drop("county")
-        )
-
-        df_historical_weather_local = (
-            df_historical_weather.filter(cudf.col("county").is_not_null())
-            .group_by("county", "datetime")
-            .mean()
-        )
-
-        for hours_lag in [2 * 24, 7 * 24]:
-            df_features = df_features.join(
-                df_historical_weather_date.with_columns(
-                    cudf.col("datetime") + cudf.duration(hours=hours_lag)
-                ),
-                on="datetime",
-                how="left",
-                suffix=f"_historical_{hours_lag}h",
-            )
-            df_features = df_features.join(
-                df_historical_weather_local.with_columns(
-                    cudf.col("datetime") + cudf.duration(hours=hours_lag)
-                ),
-                on=["county", "datetime"],
-                how="left",
-                suffix=f"_historical_local_{hours_lag}h",
-            )
-
-        for hours_lag in [1 * 24]:
-            df_features = df_features.join(
-                df_historical_weather_date.with_columns(
-                    cudf.col("datetime") + cudf.duration(hours=hours_lag),
-                    cudf.col("datetime").dt.hour().alias("hour"),
+                df_historical_weather = self.data_storage.df_historical_weather
+                df_weather_station_to_county_mapping = (
+                    self.data_storage.df_weather_station_to_county_mapping
                 )
-                .filter(cudf.col("hour") <= 10)
-                .drop("hour"),
-                on="datetime",
-                how="left",
-                suffix=f"_historical_{hours_lag}h",
-            )
 
-        return df_features
+                df_historical_weather = (
+                    df_historical_weather.with_columns(
+                        cudf.col("latitude").cast(cudf.datatypes.Float32),
+                        cudf.col("longitude").cast(cudf.datatypes.Float32),
+                    )
+                    .join(
+                        df_weather_station_to_county_mapping,
+                        how="left",
+                        on=["longitude", "latitude"],
+                    )
+                    .drop("longitude", "latitude")
+                    .with_columns(
+                        cudf.col("temperature").ewm_mean(span=150).alias("historical_temperature_span_150"),
+                        cudf.col("dewpoint").ewm_mean(span=150).alias("historical_dewpoint_span_150"),
+                        cudf.col("cloudcover_high").ewm_mean(span=150).alias("historical_cloudcover_high_span_150"),
+                        cudf.col("cloudcover_low").ewm_mean(span=150).alias("historical_cloudcover_low_span_150"),
+                        cudf.col("cloudcover_total").ewm_mean(span=150).alias("historical_cloudcover_total_span_150"),
+                        cudf.col("windspeed_10m").ewm_mean(span=150).alias("historical_windspeed_10m_span_150"),
+                        cudf.col("winddirection_10m").ewm_mean(span=150).alias("historical_winddirection_10m_span_150"),
+                        cudf.col("direct_solar_radiation").ewm_mean(span=150).alias("historical_direct_solar_radiation_span_150"),
+                        cudf.col("shortwave_radiation").ewm_mean(span=150).alias("historical_shortwave_radiation_span_150"),
+                        cudf.col("snowfall").ewm_mean(span=150).alias("historical_snowfall_span_150"),
+                        cudf.col("diffuse_radiation").ewm_mean(span=150).alias("historical_diffuse_radiation_span_150"),
+                        cudf.col("surface_pressure").ewm_mean(span=150).alias("historical_surface_pressure_span_150"),
+                    )
+                )
+
+                df_historical_weather_date = (
+                    df_historical_weather.group_by("datetime").mean().drop("county")
+                )
+
+                df_historical_weather_local = (
+                    df_historical_weather.filter(cudf.col("county").is_not_null())
+                    .group_by("county", "datetime")
+                    .mean()
+                )
+
+                for hours_lag in [2 * 24, 7 * 24]:
+                    df_features = df_features.join(
+                        df_historical_weather_date.with_columns(
+                            cudf.col("datetime") + cudf.duration(hours=hours_lag)
+                        ),
+                        on="datetime",
+                        how="left",
+                        suffix=f"_historical_{hours_lag}h",
+                    )
+                    df_features = df_features.join(
+                        df_historical_weather_local.with_columns(
+                            cudf.col("datetime") + cudf.duration(hours=hours_lag)
+                        ),
+                        on=["county", "datetime"],
+                        how="left",
+                        suffix=f"_historical_local_{hours_lag}h",
+                    )
+
+                for hours_lag in [1 * 24]:
+                    df_features = df_features.join(
+                        df_historical_weather_date.with_columns(
+                            cudf.col("datetime") + cudf.duration(hours=hours_lag),
+                            cudf.col("datetime").dt.hour().alias("hour"),
+                        )
+                        .filter(cudf.col("hour") <= 10)
+                        .drop("hour"),
+                        on="datetime",
+                        how="left",
+                        suffix=f"_historical_{hours_lag}h",
+                    )
+
+                return df_features
 
     def _add_target_features(self, df_features):
         df_target = self.data_storage.df_target
