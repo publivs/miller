@@ -57,7 +57,9 @@ def run(device_name):
 
 if __name__ == '__main__':
     # 此处填设备编号：由1024我的小表妹原创
-    device_name = "2NSDU20521004276"
+
+    # device_name = "2NSDU20521004276"
+    device_name =  'kjpzgannir7lireu'
     run(device_name)
 
 
