@@ -95,5 +95,6 @@ if __name__ == '__main__':
     file_path = r'chenqian_tools\clickHouse\factors_parquet'
     parquet_path = file_path+ "\\" + f'{factor_name}.parquet'
     # 调用函数写入 Parquet 文件
-    write_df_to_parquet(df, parquet_path)
+    # write_df_to_parquet(df, parquet_path)
+    df.to_parquet(parquet_path,compression=None,engine='fastparquet') # 必须用fastParquet作为engine
     
