@@ -5,6 +5,7 @@ import re
 # import bs4
 import json
 import requests
+from bs4 import BeautifulSoup
 import time
 
 from sqlalchemy.dialects.oracle import BFILE, BLOB, CHAR, CLOB, DATE, DOUBLE_PRECISION, FLOAT, INTERVAL, LONG, NCLOB, NUMBER, NVARCHAR, NVARCHAR2, RAW, TIMESTAMP, VARCHAR, VARCHAR2
@@ -77,6 +78,7 @@ class DataCatcher:
 
         # 全分支的节点树
         self.all_tree_url = f'/api/productGroupTreeWithTables/8/-1/ALL_TREE'
+        
 
 # pd.read_sql("SELECT * FROM IDB_GIL.BOND_ABSBASICINFO ",engine)
     def get_url_data(self,table_id,req_headers,base_url,table_url,data_struc_type='0',dict_sub_key = ''):
@@ -103,7 +105,7 @@ class DataCatcher:
                 res_df = pd.DataFrame(res)
 
         # 标准的DataFrame类型
-            if data_struc_type == '1':
+            elif data_struc_type == '1':
                 res = json.loads(res_.text)
                 if not dict_sub_key:
                     res_df = pd.DataFrame.from_dict(res,orient = 'index')
@@ -111,13 +113,36 @@ class DataCatcher:
                     res_df = pd.DataFrame.from_dict(res[dict_sub_key],orient = 'index')
 
         # 返回的html静态类型
-            if data_struc_type == '2':
+            elif data_struc_type == '2':
                 try:
-                    res_df = pd.read_html(res_.text)[0]
+                    # print("Parsing HTML content...")
+                    soup = BeautifulSoup(res_.text, 'html.parser')
+                    tables = soup.find_all('table')
+
+                    if len(tables) > 0:
+                        table = tables[0]
+                        rows = table.find_all('tr')
+
+                        # Extract headers
+                        headers = [header.text for header in rows[0].find_all('th')]
+                        if not headers:
+                            headers = [header.text for header in rows[0].find_all('td')]
+
+                        # Extract rows
+                        table_data = []
+                        for row in rows[1:]:
+                            cols = row.find_all('td')
+                            table_data.append([col.text for col in cols])
+
+                        # Convert to DataFrame
+                        res_df = pd.DataFrame(table_data, columns=headers)
+                        # print("样例数据获取完成...")
+                    
+                    elif len(tables) == 0:
+                        res_df = pd.DataFrame()
                 except:
                     print(base_url+table_url,'html出错......')
                     res_df = pd.DataFrame()
-                    return res_df
 
             return res_df
         else:
@@ -305,7 +330,7 @@ class DataCatcher:
                     pass
                 h5_path = f'''{res_path}\\{table_name}_{table_cn_name}'''
                 print(h5_path)
-                sleep_time = time.sleep(np.random.randint(1,3))
+                # sleep_time = time.sleep(np.random.randint(1,3))
                 req_headers = deepcopy(req_headers)
                 if not os.path.exists(h5_path+'_'+'table'+'.h5'):
             # sleep_time = time.sleep(np.random.randint(0,1))
@@ -329,7 +354,7 @@ if __name__ == "__main__":
 
     base_url = 'https://dd.gildata.com/'
 
-    cookie = '''SESSION=caddcb67-953e-4ac5-a8ef-aba605e6780a; rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo%3D'''
+    cookie = '''rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo%3D; SESSION=e3f2ea5d-22a0-48ee-b414-1b1ef68a11b3'''
 
     # Override the default request headers:
     req_headers = {
@@ -340,7 +365,9 @@ if __name__ == "__main__":
                     }
 
     # 全分支的节点树
-    all_tree_url = f'/api/productGroupTreeWithTables/8/-1/ALL_TREE'
+    main_db_id = 8  
+    new_db = 13
+    all_tree_url = f'/api/productGroupTreeWithTables/{main_db_id}/-1/ALL_TREE'
 
     # 获取主节点的信息
     res_all_tree = requests.get(base_url+all_tree_url,headers=req_headers)
@@ -359,11 +386,12 @@ if __name__ == "__main__":
 
     import concurrent.futures
     import os 
-
+    
+    # data_catcher = DataCatcher()
     # for i in range (len(all_dataset_name['nodes']) ):
-    #         initial_file_path(all_dataset_name['nodes'][i])
+    #         data_catcher.initial_file_path(all_dataset_name['nodes'][i])
 
-    with concurrent.futures.ProcessPoolExecutor(16) as executor:
+    with concurrent.futures.ProcessPoolExecutor(4) as executor:
         # 提交任务到进程池
         future_tasks  = {}
         for i in range (len(all_dataset_name['nodes']) ):
