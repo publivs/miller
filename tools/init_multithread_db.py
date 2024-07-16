@@ -5,6 +5,7 @@ db = SQLAlchemy(session_options={"autocommit": False, "autoflush": True})
 
 import threading
 import asyncio
+import gc
 
 
 def init_databases(app: Flask):
@@ -40,31 +41,26 @@ class GetDataFromDB:
         return df_result
     
     def execute_func(self, key, func, args):
-            with self.app.app_context():
-                # 执行取数函数，并将结果存入线程对象中
-                thread = threading.currentThread()
-                setattr(thread, "result", func(*args))
+       with self.app.app_context():
+            return func(*args)
         
     def get_data_threadings(self):
-
-            df_result = {}
-            # 为每个取数函数创建一个线程，并使用字典保存线程对象
-            threads = {}
+        import concurrent
+        
+        df_result = {}
+        threadings_num = self.df_arg_dict.__len__()
+        with concurrent.futures.ThreadPoolExecutor(threadings_num) as executor:
+            futures = {}
             for key, value in self.df_arg_dict.items():
                 func = value['func']
                 args = value['args']
-                threads[key] = threading.Thread(target=self.execute_func, args=(key, func, args))
-                threads[key].start()
+                futures[key] = executor.submit(self.execute_func, key, func, args)
             
-            # 等待所有线程执行完毕
-            for key, thread in threads.items():
-                thread.join()
-            
-            # 获取每个线程的执行结果
-            for key, thread in threads.items():
-                df_result[key] = thread.result
-            
-            return df_result
+            for key, future in futures.items():
+                df_result[key] = future.result()
+            del futures[key]
+            gc.collect()  # 调用垃圾回收器释放内存
+        return df_result
     
     async def get_data_async(self, key, func, args):
         with self.app.app_context():
