@@ -3,8 +3,6 @@ import numpy as np
 from scipy import stats
 import sympy as sy
 
-
-
 from scipy.stats import binom
 
 from scipy.stats import norm
@@ -180,8 +178,6 @@ answer_613_d = 1-norm.cdf(-2.3)
 
 answer_613_e = 2*(1- norm.cdf(2.7))
 
-
-
 a = norm.interval(0.9)
 
 # quantitive 第七章课后习题
@@ -203,6 +199,7 @@ std_error_variance  = ((y - (intercept +slope*x ))**2)/(y.__len__()-2)
 #
 asw_7_13 = np.sqrt(20.30*(0.71**2+19.82)/(20*12*19.82))
 asw_7_13_b_se = np.sqrt(20.3/19.82/240)
+
 #
 from scipy.stats import norm
 fi  = norm.interval(0.99)[1]

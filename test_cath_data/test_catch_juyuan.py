@@ -354,7 +354,7 @@ if __name__ == "__main__":
 
     base_url = 'https://dd.gildata.com/'
 
-    cookie = '''rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo%3D; SESSION=e3f2ea5d-22a0-48ee-b414-1b1ef68a11b3'''
+    cookie = '''rememberMeFlag=true; sSerial=TVRBNllXNWlZVzVuYzJwck1tZHBiR1JoZEdGQU1USXo%3D; SESSION=a9267dab-c52f-4942-9989-2b30e8dfb441'''
 
     # Override the default request headers:
     req_headers = {
@@ -391,7 +391,7 @@ if __name__ == "__main__":
     # for i in range (len(all_dataset_name['nodes']) ):
     #         data_catcher.initial_file_path(all_dataset_name['nodes'][i])
 
-    with concurrent.futures.ProcessPoolExecutor(4) as executor:
+    with concurrent.futures.ProcessPoolExecutor(26) as executor:
         # 提交任务到进程池
         future_tasks  = {}
         for i in range (len(all_dataset_name['nodes']) ):
